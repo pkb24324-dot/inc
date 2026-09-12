@@ -172,6 +172,15 @@ export interface SystemSettings {
   whatsappSupportLink: string;
   broadcastNotice: string;
   broadcastType: 'info' | 'warning' | 'promo' | 'celebration';
+  // WatchPay Gateway Configuration
+  watchpayEnabled?: boolean;
+  watchpayDomain?: string;
+  watchpayMerchantNo?: string;
+  watchpayPayKey?: string;
+  watchpayPayType?: string;
+  watchpayCountry?: string;
+  watchpayTransferKey?: string;
+  watchpayCallbackIp?: string;
 }
 
 export interface AuditLog {
@@ -182,4 +191,19 @@ export interface AuditLog {
   details: string;
   timestamp: string;
   severity: 'info' | 'warning' | 'critical';
+}
+
+export interface IncomeCelebrationData {
+  title: string;
+  amount: number;
+  source: 'dividend' | 'referral' | 'milestone' | 'spin' | 'checkin' | 'voucher' | 'bulk_dividend';
+  sourceTitle: string;
+  planName?: string;
+  dayProgress?: string;
+  tierLevel?: number;
+  referralCount?: number;
+  bonusTitle?: string;
+  newBalance?: number;
+  timestamp?: string;
+  txId?: string;
 }

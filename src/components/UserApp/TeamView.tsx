@@ -25,6 +25,11 @@ import {
   Clock,
   Layers,
   CheckCircle2,
+  Network,
+  ChevronDown,
+  Calendar,
+  Palette,
+  Send,
   X
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
@@ -36,6 +41,7 @@ export const TeamView: React.FC = () => {
     settings, 
     claimTeamCommission, 
     claimMilestoneReward, 
+    claimDailyAgencySalary,
     showNotification,
     theme 
   } = useApp();
@@ -48,6 +54,13 @@ export const TeamView: React.FC = () => {
   const [searchMember, setSearchMember] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'pending'>('all');
   const [showPosterModal, setShowPosterModal] = useState(false);
+
+  // Advanced View Modes & Poster Customizer State
+  const [downlineViewMode, setDownlineViewMode] = useState<'roster' | 'tree'>('roster');
+  const [posterTheme, setPosterTheme] = useState<'gold' | 'neon' | 'emerald'>('gold');
+  const [customPosterHeadline, setCustomPosterHeadline] = useState('Official VIP Treasury Invitation');
+  const [expandedTreeNodes, setExpandedTreeNodes] = useState<Record<string, boolean>>({});
+  const [salaryClaimedToday, setSalaryClaimedToday] = useState(false);
 
   // Commission Projection Calculator State
   const [calcInvites, setCalcInvites] = useState<number>(6);
@@ -158,6 +171,46 @@ export const TeamView: React.FC = () => {
 
   const handleClaimMilestone = (idx: number, reward: number, title: string) => {
     claimMilestoneReward(idx, reward, title);
+  };
+
+  // Executive Daily Agency Salary Matrix
+  const salaryTiers = [
+    { minTeam: 1, rank: 'Junior Promoter', dailySalary: 50, color: 'text-blue-500', badge: 'Tier I' },
+    { minTeam: 5, rank: 'Senior Promoter', dailySalary: 180, color: 'text-indigo-500', badge: 'Tier II' },
+    { minTeam: 15, rank: 'Agency Manager', dailySalary: 500, color: 'text-amber-500', badge: 'Tier III' },
+    { minTeam: 30, rank: 'Regional Director', dailySalary: 1200, color: 'text-emerald-500', badge: 'Tier IV' },
+    { minTeam: 50, rank: 'Apex Ambassador', dailySalary: 3000, color: 'text-purple-500', badge: 'VIP Master' },
+  ];
+
+  const currentSalaryTier = [...salaryTiers].reverse().find(t => totalNetworkCount >= t.minTeam) || null;
+  const nextSalaryTier = salaryTiers.find(t => totalNetworkCount < t.minTeam);
+
+  const handleClaimSalary = () => {
+    if (!currentSalaryTier) {
+      showNotification('Recruit at least 1 team member to unlock daily executive salary!', 'info');
+      return;
+    }
+    if (salaryClaimedToday) {
+      showNotification("Today's agency salary has already been credited to your wallet balance!", 'info');
+      return;
+    }
+    claimDailyAgencySalary(currentSalaryTier.dailySalary, currentSalaryTier.rank);
+    setSalaryClaimedToday(true);
+  };
+
+  const nudgeMemberWhatsApp = (member: typeof allUsers[0]) => {
+    sounds.playClick();
+    const cleanPhone = member.phone.replace(/\D/g, '');
+    const msg = `Hi ${member.name}! Glad to have you on my ${settings.platformName} team. Activate your daily returns plan or check the flash yield plans today! Here is the platform portal: ${referralLink}`;
+    window.open(`https://api.whatsapp.com/send?phone=91${cleanPhone}&text=${encodeURIComponent(msg)}`, '_blank');
+  };
+
+  const toggleTreeNode = (nodeId: string) => {
+    sounds.playClick();
+    setExpandedTreeNodes(prev => ({
+      ...prev,
+      [nodeId]: !prev[nodeId]
+    }));
   };
 
   // Calculator Projections
@@ -547,6 +600,103 @@ export const TeamView: React.FC = () => {
         </div>
       </div>
 
+      {/* --- EXECUTIVE DAILY AGENCY SALARY ACCRUAL DESK --- */}
+      <div className={`rounded-3xl p-4 sm:p-5 shadow-sm border transition-all space-y-3.5 ${
+        isLight 
+          ? 'bg-gradient-to-br from-amber-50/80 via-orange-50/40 to-white border-amber-200' 
+          : 'bg-gradient-to-br from-amber-950/30 via-slate-900 to-slate-900 border-amber-500/30'
+      }`}>
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-2.5">
+            <div className={`w-9 h-9 rounded-2xl flex items-center justify-center ${
+              isLight ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30' : 'bg-amber-500/20 text-amber-400'
+            }`}>
+              <Calendar className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <h3 className={`font-black text-xs sm:text-sm font-['Outfit'] ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                  Executive Agency Daily Salary
+                </h3>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                  currentSalaryTier 
+                    ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30' 
+                    : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                }`}>
+                  {currentSalaryTier ? currentSalaryTier.rank : 'Unranked Partner'}
+                </span>
+              </div>
+              <p className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                Automatic recurring executive stipend credited daily based on verified downlines
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">Daily Payout</span>
+            <span className="font-mono text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400">
+              ₹{currentSalaryTier ? currentSalaryTier.dailySalary : 0}
+              <span className="text-xs font-normal text-slate-400">/day</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Next Tier Milestone Bar */}
+        {nextSalaryTier && (
+          <div className={`p-3 rounded-2xl border space-y-1.5 ${
+            isLight ? 'bg-white/80 border-amber-100' : 'bg-slate-950/70 border-slate-800'
+          }`}>
+            <div className="flex justify-between items-center text-xs">
+              <span className={isLight ? 'text-slate-600 font-medium' : 'text-slate-400'}>
+                Next Rank: <strong className="text-amber-600 dark:text-amber-400">{nextSalaryTier.rank} (₹{nextSalaryTier.dailySalary}/day)</strong>
+              </span>
+              <span className="font-mono text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                {totalNetworkCount} / {nextSalaryTier.minTeam} Members
+              </span>
+            </div>
+            <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div 
+                className="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, Math.round((totalNetworkCount / nextSalaryTier.minTeam) * 100))}%` }}
+              />
+            </div>
+            <span className="text-[10px] text-slate-400 block text-right">
+              Need {Math.max(0, nextSalaryTier.minTeam - totalNetworkCount)} more downline members to upgrade
+            </span>
+          </div>
+        )}
+
+        {/* Claim Today's Salary Button */}
+        <button
+          onClick={handleClaimSalary}
+          disabled={!currentSalaryTier || salaryClaimedToday}
+          className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition-all shadow-md active:scale-95 ${
+            !currentSalaryTier
+              ? isLight 
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200' 
+                : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+              : salaryClaimedToday
+                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 cursor-default'
+                : 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-white shadow-amber-500/20'
+          }`}
+        >
+          {salaryClaimedToday ? (
+            <>
+              <Check className="w-4 h-4 text-emerald-500" />
+              <span>Today's Salary (₹{currentSalaryTier?.dailySalary}) Already Credited</span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4" />
+              <span>
+                {currentSalaryTier 
+                  ? `Claim Today's ₹${currentSalaryTier.dailySalary} Daily Executive Salary` 
+                  : 'Reach 1+ Downline Members to Unlock Daily Salary'}
+              </span>
+            </>
+          )}
+        </button>
+      </div>
+
       {/* Agency Milestone Achievement Bonuses & Daily Salary Desk */}
       <div className={`rounded-3xl p-4 shadow-sm border transition-all space-y-3 ${
         isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'
@@ -668,153 +818,367 @@ export const TeamView: React.FC = () => {
         </div>
       </div>
 
-      {/* Downline Member Surveillance Roster */}
-      <div className={`rounded-3xl p-4 shadow-sm border transition-all space-y-3 ${
+      {/* Downline Member Surveillance Roster & Network Tree */}
+      <div className={`rounded-3xl p-4 sm:p-5 shadow-sm border transition-all space-y-3.5 ${
         isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'
       }`}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div>
-            <h3 className={`font-bold text-xs ${isLight ? 'text-slate-900' : 'text-white'}`}>
-              Downline Network Members ({activeTierUsers.length})
-            </h3>
+            <div className="flex items-center space-x-2">
+              <h3 className={`font-black text-xs sm:text-sm ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                Downline Network Intelligence ({totalNetworkCount})
+              </h3>
+              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                {activeInvestorsCount} Active Investors
+              </span>
+            </div>
             <p className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-              Inspect members, their total recharges & your direct commission rebate ({activeRate}%)
+              Inspect members, downline chains & your direct commission rebate ({activeRate}%)
             </p>
           </div>
 
-          {/* Tier Switcher Pills */}
-          <div className={`p-1 rounded-xl border flex space-x-1 ${
-            isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950 border-slate-800'
-          }`}>
-            <button
-              onClick={() => { setActiveTier(1); sounds.playClick(); }}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                activeTier === 1 
-                  ? 'bg-indigo-600 text-white shadow-sm' 
-                  : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              L1 ({settings.referralL1Percent}%)
-            </button>
-            <button
-              onClick={() => { setActiveTier(2); sounds.playClick(); }}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                activeTier === 2 
-                  ? 'bg-blue-600 text-white shadow-sm' 
-                  : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              L2 ({settings.referralL2Percent}%)
-            </button>
-            <button
-              onClick={() => { setActiveTier(3); sounds.playClick(); }}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                activeTier === 3 
-                  ? 'bg-purple-600 text-white shadow-sm' 
-                  : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              L3 ({settings.referralL3Percent}%)
-            </button>
-          </div>
-        </div>
-
-        {/* Search & Status Filter Controls */}
-        <div className="flex items-center space-x-2">
-          <div className={`flex-1 flex items-center space-x-2 px-3 py-2 rounded-xl border ${
-            isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-950 border-slate-800 text-white'
-          }`}>
-            <Search className="w-3.5 h-3.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search member name or phone..."
-              value={searchMember}
-              onChange={(e) => setSearchMember(e.target.value)}
-              className="bg-transparent text-xs outline-none w-full placeholder-slate-400"
-            />
-            {searchMember && (
-              <button onClick={() => setSearchMember('')} className="text-slate-400 hover:text-slate-600">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className={`text-xs font-bold py-2 px-2.5 rounded-xl border outline-none cursor-pointer ${
-              isLight ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-slate-950 border-slate-800 text-slate-300'
-            }`}
-          >
-            <option value="all">All ({activeTierUsers.length})</option>
-            <option value="active">Active Investors</option>
-            <option value="pending">Pending First Recharge</option>
-          </select>
-        </div>
-
-        {/* Members List */}
-        <div className="space-y-2 max-h-[380px] overflow-y-auto pr-0.5">
-          {filteredMembers.length === 0 ? (
-            <div className={`text-center py-8 rounded-2xl border ${
-              isLight ? 'bg-slate-50 border-slate-200 text-slate-500' : 'bg-slate-950 border-slate-800 text-slate-400'
+          {/* View Mode & Tier Controls */}
+          <div className="flex items-center space-x-2">
+            {/* View Mode Toggle */}
+            <div className={`p-1 rounded-xl border flex space-x-1 ${
+              isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950 border-slate-800'
             }`}>
-              <Users className="w-8 h-8 mx-auto mb-2 opacity-40" />
-              <p className="text-xs font-bold">No downline members found</p>
-              <p className="text-[11px] mt-0.5 text-slate-400">Share your invite link to register new investors!</p>
+              <button
+                onClick={() => { setDownlineViewMode('roster'); sounds.playClick(); }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                  downlineViewMode === 'roster'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Roster</span>
+              </button>
+              <button
+                onClick={() => { setDownlineViewMode('tree'); sounds.playClick(); }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                  downlineViewMode === 'tree'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Network className="w-3.5 h-3.5" />
+                <span>Tree View</span>
+              </button>
             </div>
-          ) : (
-            filteredMembers.map((m) => {
-              const commissionEarned = Math.round((m.totalRecharge || 0) * (activeRate / 100));
-              const isActive = (m.totalRecharge || 0) > 0;
 
-              return (
-                <div
-                  key={m.id}
-                  className={`p-3 rounded-2xl border flex items-center justify-between transition-all ${
-                    isLight 
-                      ? 'bg-slate-50/70 hover:bg-slate-100/80 border-slate-200' 
-                      : 'bg-slate-950 hover:bg-slate-900 border-slate-800'
+            {/* Tier Switcher Pills (in Roster mode) */}
+            {downlineViewMode === 'roster' && (
+              <div className={`p-1 rounded-xl border flex space-x-1 ${
+                isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950 border-slate-800'
+              }`}>
+                <button
+                  onClick={() => { setActiveTier(1); sounds.playClick(); }}
+                  className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+                    activeTier === 1 
+                      ? 'bg-indigo-600 text-white shadow-sm' 
+                      : isLight ? 'text-slate-600' : 'text-slate-400'
                   }`}
                 >
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs ${
-                      isLight ? 'bg-indigo-100 text-indigo-700' : 'bg-indigo-500/20 text-indigo-400'
-                    }`}>
-                      {m.name.charAt(0)}
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-1.5">
-                        <h4 className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                          {m.name}
-                        </h4>
-                        <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
-                          isActive 
-                            ? isLight ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                            : isLight ? 'bg-slate-200 text-slate-600 border-slate-300' : 'bg-slate-800 text-slate-400 border-slate-700'
-                        }`}>
-                          {isActive ? 'Active Investor' : 'Registered'}
-                        </span>
-                        <span className="text-[9px] text-amber-500 font-bold">VIP {m.vipLevel}</span>
-                      </div>
-                      <p className={`text-[11px] font-mono mt-0.5 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-                        +91 {m.phone.slice(0, 5)}••••• • Joined {m.createdAt.slice(0, 10)}
-                      </p>
-                    </div>
-                  </div>
+                  L1 ({settings.referralL1Percent}%)
+                </button>
+                <button
+                  onClick={() => { setActiveTier(2); sounds.playClick(); }}
+                  className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+                    activeTier === 2 
+                      ? 'bg-blue-600 text-white shadow-sm' 
+                      : isLight ? 'text-slate-600' : 'text-slate-400'
+                  }`}
+                >
+                  L2 ({settings.referralL2Percent}%)
+                </button>
+                <button
+                  onClick={() => { setActiveTier(3); sounds.playClick(); }}
+                  className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+                    activeTier === 3 
+                      ? 'bg-purple-600 text-white shadow-sm' 
+                      : isLight ? 'text-slate-600' : 'text-slate-400'
+                  }`}
+                >
+                  L3 ({settings.referralL3Percent}%)
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
 
-                  <div className="text-right">
-                    <span className="text-xs font-mono font-black text-emerald-600 dark:text-emerald-400 block">
-                      +₹{commissionEarned.toLocaleString()}
+        {downlineViewMode === 'roster' ? (
+          <>
+            {/* Search & Status Filter Controls */}
+            <div className="flex items-center space-x-2">
+              <div className={`flex-1 flex items-center space-x-2 px-3 py-2 rounded-xl border ${
+                isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-950 border-slate-800 text-white'
+              }`}>
+                <Search className="w-3.5 h-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search member name or phone..."
+                  value={searchMember}
+                  onChange={(e) => setSearchMember(e.target.value)}
+                  className="bg-transparent text-xs outline-none w-full placeholder-slate-400"
+                />
+                {searchMember && (
+                  <button onClick={() => setSearchMember('')} className="text-slate-400 hover:text-slate-600">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className={`text-xs font-bold py-2 px-2.5 rounded-xl border outline-none cursor-pointer ${
+                  isLight ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-slate-950 border-slate-800 text-slate-300'
+                }`}
+              >
+                <option value="all">All Tier {activeTier} ({activeTierUsers.length})</option>
+                <option value="active">Active Investors</option>
+                <option value="pending">Pending First Recharge</option>
+              </select>
+            </div>
+
+            {/* Members List with WhatsApp Direct Nudge */}
+            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-0.5">
+              {filteredMembers.length === 0 ? (
+                <div className={`text-center py-8 rounded-2xl border ${
+                  isLight ? 'bg-slate-50 border-slate-200 text-slate-500' : 'bg-slate-950 border-slate-800 text-slate-400'
+                }`}>
+                  <Users className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-xs font-bold">No downline members in Tier {activeTier}</p>
+                  <p className="text-[11px] mt-0.5 text-slate-400">Share your invite link to register new investors!</p>
+                </div>
+              ) : (
+                filteredMembers.map((m) => {
+                  const commissionEarned = Math.round((m.totalRecharge || 0) * (activeRate / 100));
+                  const isActive = (m.totalRecharge || 0) > 0;
+
+                  return (
+                    <div
+                      key={m.id}
+                      className={`p-3 rounded-2xl border flex items-center justify-between transition-all ${
+                        isLight 
+                          ? 'bg-slate-50/70 hover:bg-slate-100/80 border-slate-200' 
+                          : 'bg-slate-950 hover:bg-slate-900 border-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs ${
+                          isLight ? 'bg-indigo-100 text-indigo-700' : 'bg-indigo-500/20 text-indigo-400'
+                        }`}>
+                          {m.name.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="flex items-center space-x-1.5">
+                            <h4 className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                              {m.name}
+                            </h4>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
+                              isActive 
+                                ? isLight ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                : isLight ? 'bg-slate-200 text-slate-600 border-slate-300' : 'bg-slate-800 text-slate-400 border-slate-700'
+                            }`}>
+                              {isActive ? 'Active Investor' : 'Registered'}
+                            </span>
+                            <span className="text-[9px] text-amber-500 font-bold">VIP {m.vipLevel}</span>
+                          </div>
+                          <p className={`text-[11px] font-mono mt-0.5 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                            +91 {m.phone.slice(0, 5)}••••• • Code: {m.referralCode}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <div className="text-right">
+                          <span className="text-xs font-mono font-black text-emerald-600 dark:text-emerald-400 block">
+                            +₹{commissionEarned.toLocaleString()}
+                          </span>
+                          <span className={`text-[10px] font-mono ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                            Recharge: ₹{(m.totalRecharge || 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => nudgeMemberWhatsApp(m)}
+                          title="Nudge & Guide via WhatsApp"
+                          className="p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 active:scale-95 transition-all flex items-center space-x-1"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span className="text-[10px] font-bold hidden sm:inline">Nudge</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </>
+        ) : (
+          /* --- INTERACTIVE 3-TIER NETWORK HIERARCHY TREE --- */
+          <div className="space-y-3 pt-1">
+            {/* Root Node: You */}
+            <div className={`p-3.5 rounded-2xl border ${
+              isLight ? 'bg-indigo-50/70 border-indigo-200' : 'bg-indigo-950/30 border-indigo-500/30'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-sm">
+                    YOU
+                  </div>
+                  <div>
+                    <span className={`text-xs font-black block ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                      {currentUser.name} (Apex Sponsor)
                     </span>
-                    <span className={`text-[10px] font-mono ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-                      Recharge: ₹{(m.totalRecharge || 0).toLocaleString()}
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Code: {currentUser.referralCode} • VIP {currentUser.vipLevel}
                     </span>
                   </div>
                 </div>
-              );
-            })
-          )}
-        </div>
+                <div className="text-right">
+                  <span className="text-xs font-mono font-black text-indigo-600 dark:text-indigo-400 block">
+                    {totalNetworkCount} Downlines
+                  </span>
+                  <span className="text-[10px] text-slate-400">₹{totalTeamTurnover.toLocaleString()} Turnover</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Level 1 Nodes Branch */}
+            <div className="pl-4 border-l-2 border-dashed border-indigo-300 dark:border-indigo-800 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-400 pb-1">
+                <span>Tier 1 Direct Recruits ({level1Users.length}) • {settings.referralL1Percent}% Rebate</span>
+                <span className="font-mono text-emerald-500">₹{l1TotalRecharge.toLocaleString()} Vol</span>
+              </div>
+
+              {level1Users.length === 0 ? (
+                <div className="text-xs text-slate-400 italic py-2 pl-2">
+                  No direct Level 1 downlines yet. Share your code {currentUser.referralCode} to begin!
+                </div>
+              ) : (
+                level1Users.map((l1) => {
+                  const isExpanded = !!expandedTreeNodes[l1.id];
+                  // Downlines of this L1 user (which are L2 to current user)
+                  const l1DirectSubs = allUsers.filter(u => u.referredBy === l1.referralCode);
+                  const subTurnover = l1DirectSubs.reduce((sum, u) => sum + (u.totalRecharge || 0), 0);
+
+                  return (
+                    <div key={l1.id} className="space-y-2">
+                      <div className={`p-3 rounded-2xl border transition-all ${
+                        isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-500 font-bold text-xs flex items-center justify-center">
+                              L1
+                            </div>
+                            <div>
+                              <div className="flex items-center space-x-1.5">
+                                <span className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                                  {l1.name}
+                                </span>
+                                <span className="text-[9px] px-1 rounded bg-amber-500/10 text-amber-500 font-bold">
+                                  VIP {l1.vipLevel}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                +91 {l1.phone.slice(0, 5)}••••• • Code: {l1.referralCode}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <div className="text-right">
+                              <span className="text-xs font-mono font-bold text-emerald-500 block">
+                                ₹{(l1.totalRecharge || 0).toLocaleString()}
+                              </span>
+                              <span className="text-[9px] text-slate-400">
+                                {l1DirectSubs.length} subs
+                              </span>
+                            </div>
+
+                            {l1DirectSubs.length > 0 && (
+                              <button
+                                onClick={() => toggleTreeNode(l1.id)}
+                                className={`p-1.5 rounded-lg border text-xs transition-all ${
+                                  isExpanded 
+                                    ? 'bg-indigo-600 text-white border-indigo-600' 
+                                    : isLight ? 'bg-white text-slate-600 border-slate-200' : 'bg-slate-900 text-slate-300 border-slate-700'
+                                }`}
+                              >
+                                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => nudgeMemberWhatsApp(l1)}
+                              className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20"
+                              title="WhatsApp Nudge"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Level 2 Sub-branch nested */}
+                      {isExpanded && l1DirectSubs.length > 0 && (
+                        <div className="pl-4 border-l-2 border-dashed border-blue-400/50 space-y-1.5 py-1">
+                          <span className="text-[10px] font-bold text-blue-400 block">
+                            Tier 2 Downlines via {l1.name} ({l1DirectSubs.length} members)
+                          </span>
+                          {l1DirectSubs.map((l2) => {
+                            const l2DirectSubs = allUsers.filter(u => u.referredBy === l2.referralCode);
+                            return (
+                              <div
+                                key={l2.id}
+                                className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${
+                                  isLight ? 'bg-blue-50/50 border-blue-100' : 'bg-blue-950/20 border-blue-900/30'
+                                }`}
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">
+                                    L2
+                                  </span>
+                                  <div>
+                                    <span className={`font-bold ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>
+                                      {l2.name}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 ml-1.5 font-mono">
+                                      VIP {l2.vipLevel}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="font-mono text-emerald-500 font-bold">
+                                    ₹{(l2.totalRecharge || 0).toLocaleString()}
+                                  </span>
+                                  {l2DirectSubs.length > 0 && (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 font-bold">
+                                      +{l2DirectSubs.length} L3
+                                    </span>
+                                  )}
+                                  <button
+                                    onClick={() => nudgeMemberWhatsApp(l2)}
+                                    className="p-1 rounded-lg bg-emerald-500/10 text-emerald-500"
+                                  >
+                                    <MessageCircle className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Live Commission Activity Stream Ticker */}
@@ -862,10 +1226,10 @@ export const TeamView: React.FC = () => {
         </div>
       </div>
 
-      {/* --- VIP PROMOTIONAL INVITATION POSTER MODAL --- */}
+      {/* --- VIP PROMOTIONAL INVITATION POSTER STUDIO 2.0 MODAL --- */}
       {showPosterModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className={`rounded-3xl max-w-sm w-full p-6 shadow-2xl relative border ${
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200 overflow-y-auto">
+          <div className={`rounded-3xl max-w-sm w-full p-5 shadow-2xl relative border my-4 ${
             isLight ? 'bg-white border-slate-200 text-slate-900' : 'bg-slate-900 border-slate-700 text-white'
           }`}>
             <button
@@ -875,66 +1239,97 @@ export const TeamView: React.FC = () => {
               <X className="w-5 h-5" />
             </button>
 
-            {/* Poster Card Artwork */}
-            <div className="text-center space-y-4 pt-1">
-              <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400 text-xs font-black">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>OFFICIAL TREASURY INVITATION</span>
-              </div>
-
+            {/* Poster Customizer Controls */}
+            <div className="space-y-3 pt-1">
               <div>
-                <h3 className="text-xl font-extrabold font-['Outfit']">
-                  {settings.platformName}
+                <span className="text-xs font-black uppercase tracking-wider text-indigo-500 block">
+                  VIP Invitation Studio 2.0
+                </span>
+                <h3 className="text-lg font-bold font-['Outfit']">
+                  Customize Shareable Poster
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  High-Return Liquidity Production Assets
-                </p>
               </div>
 
-              {/* QR Code Container */}
-              <div className="p-4 bg-white rounded-2xl border-2 border-indigo-600/30 inline-block shadow-lg">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(referralLink)}`}
-                  alt="Invitation QR Code"
-                  className="w-44 h-44 mx-auto rounded-lg"
-                />
+              {/* Theme Selector */}
+              <div className="flex items-center space-x-1.5">
+                <span className="text-[10px] font-bold text-slate-400 mr-1">Theme:</span>
+                {[
+                  { id: 'gold', name: 'Royal Gold', bg: 'from-amber-600 to-yellow-600' },
+                  { id: 'neon', name: 'Cyber Neon', bg: 'from-indigo-600 to-purple-600' },
+                  { id: 'emerald', name: 'Emerald VIP', bg: 'from-emerald-600 to-teal-600' },
+                ].map((th) => (
+                  <button
+                    key={th.id}
+                    onClick={() => setPosterTheme(th.id as any)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border ${
+                      posterTheme === th.id
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-indigo-500 shadow-sm'
+                        : isLight ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}
+                  >
+                    {th.name}
+                  </button>
+                ))}
               </div>
 
-              {/* Referral Code Display */}
-              <div className={`p-3 rounded-2xl border ${
-                isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
+              {/* Poster Card Artwork Preview */}
+              <div className={`p-4 rounded-3xl text-center space-y-3.5 border shadow-xl text-white transition-all bg-gradient-to-br ${
+                posterTheme === 'gold'
+                  ? 'from-amber-700 via-yellow-600 to-amber-900 border-amber-400/40 shadow-amber-500/20'
+                  : posterTheme === 'emerald'
+                  ? 'from-emerald-800 via-teal-700 to-emerald-950 border-emerald-400/40 shadow-emerald-500/20'
+                  : 'from-indigo-900 via-purple-900 to-slate-950 border-indigo-500/40 shadow-indigo-500/20'
               }`}>
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Exclusive Invitation Code</span>
-                <span className="font-mono text-2xl font-black text-amber-500 tracking-wider">
-                  {currentUser.referralCode}
-                </span>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold block mt-1">
-                  🎁 Sign up & receive instant ₹50 welcome reward
-                </span>
+                <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-white/20 border border-white/30 text-white text-[10px] font-black uppercase tracking-wider backdrop-blur-sm">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>VIP Treasury Pass</span>
+                </div>
+
+                <div>
+                  <h4 className="text-xl font-black font-['Outfit'] tracking-tight">
+                    {settings.platformName}
+                  </h4>
+                  <p className="text-[11px] text-white/80 mt-0.5">
+                    High Yield Production Assets
+                  </p>
+                </div>
+
+                {/* QR Code Container */}
+                <div className="p-3 bg-white rounded-2xl border-2 border-white/40 inline-block shadow-lg">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(referralLink)}`}
+                    alt="Invitation QR Code"
+                    className="w-36 h-36 mx-auto rounded-lg"
+                  />
+                </div>
+
+                {/* Referral Code Display */}
+                <div className="p-2.5 rounded-2xl bg-black/30 border border-white/20 backdrop-blur-sm">
+                  <span className="text-[9px] text-white/70 uppercase tracking-wider block">Exclusive Invitation Code</span>
+                  <span className="font-mono text-2xl font-black text-amber-300 tracking-wider">
+                    {currentUser.referralCode}
+                  </span>
+                  <span className="text-[10px] text-emerald-300 font-bold block mt-0.5">
+                    🎁 Sign up & receive instant ₹50 welcome reward
+                  </span>
+                </div>
               </div>
 
               {/* Action Buttons */}
               <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  onClick={shareWhatsApp}
+                  className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-600/30"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>WhatsApp</span>
+                </button>
                 <button
                   onClick={copyLink}
                   className="py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-md shadow-indigo-600/30"
                 >
                   <Share2 className="w-3.5 h-3.5" />
                   <span>Copy Link</span>
-                </button>
-                <button
-                  onClick={() => {
-                    showNotification('Poster image ready for social sharing!', 'success');
-                    setShowPosterModal(false);
-                  }}
-                  className={`py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center space-x-1.5 border ${
-                    isLight 
-                      ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200' 
-                      : 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700'
-                  }`}
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Save Poster</span>
                 </button>
               </div>
             </div>

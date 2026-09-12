@@ -220,21 +220,21 @@ export const DepositTrendsChart: React.FC<Props> = ({
       } ${className}`}
     >
       {/* Header & Controls Bar */}
-      <div className="p-3.5 border-b border-slate-100 dark:border-slate-800 space-y-3">
+      <div className="p-2.5 sm:p-3 border-b border-slate-100 dark:border-slate-800 space-y-2.5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           
           {/* Title and Badge */}
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center flex-shrink-0">
-              <TrendingUp className="w-4 h-4" />
+            <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center flex-shrink-0">
+              <TrendingUp className="w-3.5 h-3.5" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h4 className="text-xs font-black uppercase tracking-wider font-['Outfit']">
+                <h4 className="text-xs font-bold uppercase tracking-wider font-['Outfit']">
                   30-Day Deposit Velocity Trend
                 </h4>
-                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold border border-blue-500/20">
-                  Recharts v3
+                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold border border-blue-500/20">
+                  Recharts
                 </span>
               </div>
               <p className="text-[10px] text-slate-400">

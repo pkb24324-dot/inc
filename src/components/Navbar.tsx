@@ -57,47 +57,47 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+    <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-sm">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-12 sm:h-13">
           
           {/* Logo & Brand */}
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white font-bold">
-              <TrendingUp className="w-5 h-5 text-white" />
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-md shadow-blue-500/20 text-white font-bold flex-shrink-0">
+              <TrendingUp className="w-4 h-4 text-white" />
             </div>
             <div>
-              <div className="flex items-center space-x-2">
-                <span className="font-extrabold text-lg sm:text-xl tracking-tight text-white font-['Outfit']">
+              <div className="flex items-center space-x-1.5">
+                <span className="font-extrabold text-base sm:text-lg tracking-tight text-white font-['Outfit']">
                   {settings.platformName.split(' ')[0]}
                 </span>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                  {viewMode === 'admin' ? 'ADMIN CONSOLE' : 'INVEST'}
+                <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                  {viewMode === 'admin' ? 'ADMIN' : 'INVEST'}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 hidden sm:block">
-                {viewMode === 'admin' ? 'Real-Time Financial Clearing Desk' : 'Verified Income & Capital Platform'}
+              <p className="text-[9px] text-slate-400 hidden md:block -mt-0.5 leading-tight">
+                {viewMode === 'admin' ? 'Financial Clearing Desk' : 'Verified Capital Platform'}
               </p>
             </div>
           </div>
 
           {/* Center Info / User Balance in user mode */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 sm:space-x-2.5">
             {viewMode === 'user' ? (
-              <div className="flex items-center space-x-2 bg-slate-800/80 border border-slate-700/60 rounded-full px-3.5 py-1.5 shadow-inner">
-                <Wallet className="w-4 h-4 text-emerald-400" />
-                <div className="text-xs font-medium text-slate-300">
-                  Balance: <span className="font-bold text-emerald-400 font-mono text-sm">₹{currentUser.balance.toLocaleString()}</span>
+              <div className="flex items-center space-x-1.5 bg-slate-800/80 border border-slate-700/60 rounded-full px-2.5 py-1 shadow-inner">
+                <Wallet className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                <div className="text-[11px] font-medium text-slate-300">
+                  Bal: <span className="font-bold text-emerald-400 font-mono text-xs">₹{currentUser.balance.toLocaleString()}</span>
                 </div>
-                <div className="h-3 w-px bg-slate-700" />
-                <span className="text-[11px] font-semibold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">
+                <div className="h-2.5 w-px bg-slate-700" />
+                <span className="text-[10px] font-semibold text-amber-400 bg-amber-400/10 px-1.5 py-0.2 rounded-full">
                   VIP {currentUser.vipLevel}
                 </span>
               </div>
             ) : (
-              <div className="hidden md:flex items-center space-x-2 bg-emerald-950/40 border border-emerald-500/30 rounded-full px-3 py-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-xs font-medium text-emerald-300">Live Gateway Online</span>
+              <div className="hidden md:flex items-center space-x-1.5 bg-emerald-950/40 border border-emerald-500/30 rounded-full px-2.5 py-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[11px] font-medium text-emerald-300">Gateway Online</span>
               </div>
             )}
 
@@ -106,16 +106,16 @@ export const Navbar: React.FC = () => {
               id="theme-toggle-navbar"
               onClick={toggleTheme}
               title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-              className={`p-2 rounded-xl border transition-all duration-200 active:scale-95 flex items-center justify-center ${
+              className={`p-1.5 rounded-lg border transition-all duration-200 active:scale-95 flex items-center justify-center ${
                 theme === 'dark'
                   ? 'bg-slate-800/90 hover:bg-slate-700 text-amber-300 border-slate-700/80 shadow-inner'
                   : 'bg-amber-50 hover:bg-amber-100 text-amber-600 border-amber-200 shadow-sm'
               }`}
             >
               {theme === 'dark' ? (
-                <Sun className="w-4 h-4 text-amber-300 animate-[spin_10s_linear_infinite]" />
+                <Sun className="w-3.5 h-3.5 text-amber-300 animate-[spin_10s_linear_infinite]" />
               ) : (
-                <Moon className="w-4 h-4 text-indigo-600" />
+                <Moon className="w-3.5 h-3.5 text-indigo-600" />
               )}
             </button>
 
@@ -123,7 +123,7 @@ export const Navbar: React.FC = () => {
             <button
               id="role-switch-btn"
               onClick={handleAdminClick}
-              className={`relative flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 ${
+              className={`relative flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all shadow-md active:scale-95 ${
                 viewMode === 'admin'
                   ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30'
                   : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 shadow-orange-500/20'
@@ -131,17 +131,17 @@ export const Navbar: React.FC = () => {
             >
               {viewMode === 'admin' ? (
                 <>
-                  <Smartphone className="w-4 h-4" />
-                  <span className="hidden sm:inline">User App View</span>
-                  <span className="sm:hidden">User App</span>
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">User App</span>
+                  <span className="sm:hidden">App</span>
                 </>
               ) : (
                 <>
-                  <ShieldCheck className="w-4 h-4" />
-                  <span className="hidden sm:inline">Advance Admin Panel</span>
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Admin Desk</span>
                   <span className="sm:hidden">Admin</span>
                   {totalPending > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full ring-2 ring-slate-900 animate-bounce">
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full ring-2 ring-slate-900 animate-bounce">
                       {totalPending}
                     </span>
                   )}

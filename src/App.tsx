@@ -9,6 +9,7 @@ import { ProfileView } from './components/UserApp/ProfileView';
 import { BottomNav } from './components/UserApp/BottomNav';
 import { AdminPanel } from './components/AdminPanel/AdminPanel';
 import { FinancialRecordsModal } from './components/UserApp/FinancialRecordsModal';
+import { IncomeCongratulationsModal } from './components/UserApp/IncomeCongratulationsModal';
 import { Lock, ShieldCheck, KeyRound, Sparkles, ArrowRight } from 'lucide-react';
 import { sounds } from './utils/audio';
 
@@ -72,6 +73,9 @@ const MainApp: React.FC = () => {
             onClose={closeRecordsModal} 
             defaultTab={recordsDefaultTab} 
           />
+
+          {/* Congratulations Income Event Celebration Modal */}
+          <IncomeCongratulationsModal />
         </div>
       ) : (
         /* Admin Mode */

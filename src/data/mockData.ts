@@ -26,6 +26,14 @@ export const INITIAL_SETTINGS: SystemSettings = {
   whatsappSupportLink: 'https://wa.me/919876543210',
   broadcastNotice: '🚀 Flash Plans (1m to 1h) are now live! Get instant settlement payout directly to your wallet balance!',
   broadcastType: 'celebration',
+  watchpayEnabled: true,
+  watchpayDomain: 'https://api.watchpay.net',
+  watchpayMerchantNo: '100666859',
+  watchpayPayKey: '4abd8ad7b8a44bfcbeaa8ad8e30dae30',
+  watchpayPayType: '101',
+  watchpayCountry: 'India',
+  watchpayTransferKey: 'ZGZY3REWQJLAWRCRTHWQVGWYPMD878KQ',
+  watchpayCallbackIp: '18.141.88.123',
 };
 
 export const INITIAL_PLANS: InvestmentPlan[] = [

@@ -9,7 +9,8 @@ import {
   GiftCode,
   FraudAlert,
   RecordCategory,
-  ThemeMode
+  ThemeMode,
+  IncomeCelebrationData
 } from '../types';
 import { 
   INITIAL_PLANS, 
@@ -43,6 +44,7 @@ interface AppContextType {
   recordsModalOpen: boolean;
   recordsDefaultTab: RecordCategory;
   theme: ThemeMode;
+  celebrationData: IncomeCelebrationData | null;
 
   // View switchers
   setViewMode: (mode: 'user' | 'admin') => void;
@@ -53,15 +55,19 @@ interface AppContextType {
   openRecordsModal: (tab?: RecordCategory) => void;
   closeRecordsModal: () => void;
   toggleTheme: () => void;
+  triggerIncomeCelebration: (data: IncomeCelebrationData) => void;
+  closeIncomeCelebration: () => void;
 
   // User Actions
   submitDepositRequest: (amount: number, method: string, utrNumber: string) => boolean;
+  completeWatchPayDeposit: (orderId: string, amount: number, utrNumber: string, channelName: string) => void;
   submitWithdrawalRequest: (amount: number, bankDetails: UserAccount['bankDetails']) => { success: boolean; error?: string };
   purchasePlan: (planId: string) => { success: boolean; error?: string };
   claimDailyDividend: (investmentId: string) => { success: boolean; error?: string };
   claimAllDividends: () => { success: boolean; count: number; total: number };
   claimTeamCommission: () => { success: boolean; amount: number };
   claimMilestoneReward: (milestoneIndex: number, amount: number, title: string) => { success: boolean; error?: string };
+  claimDailyAgencySalary: (amount: number, rankName: string) => { success: boolean; error?: string };
   dailyCheckin: () => { success: boolean; reward: number };
   executeSpin: (reward: number) => { success: boolean; error?: string };
   updateBankDetails: (details: NonNullable<UserAccount['bankDetails']>) => void;
@@ -92,6 +98,7 @@ interface AppContextType {
   dismissFraudAlert: (id: string) => void;
   exportDataToCsv: (dataType: 'transactions' | 'users' | 'audit') => void;
   saveSettings: (newSettings: Partial<SystemSettings>) => void;
+  updateSettings: (newSettings: Partial<SystemSettings>) => void;
   resetToDefaults: () => void;
 }
 
@@ -160,9 +167,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return saved;
   });
 
-  const [settings, setSettings] = useState<SystemSettings>(() => 
-    loadFromStorage(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS)
-  );
+  const [settings, setSettings] = useState<SystemSettings>(() => {
+    const saved = loadFromStorage<SystemSettings>(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
+    // Ensure the new live WatchPay credentials take effect immediately if unset or using old test defaults
+    if (!saved.watchpayMerchantNo || saved.watchpayMerchantNo === '222887002') {
+      return {
+        ...saved,
+        watchpayEnabled: true,
+        watchpayMerchantNo: INITIAL_SETTINGS.watchpayMerchantNo,
+        watchpayPayKey: INITIAL_SETTINGS.watchpayPayKey,
+      };
+    }
+    return saved;
+  });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => 
     loadFromStorage(STORAGE_KEYS.AUDIT_LOGS, INITIAL_AUDIT_LOGS)
@@ -226,6 +243,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const closeRecordsModal = useCallback(() => {
     setRecordsModalOpen(false);
+  }, []);
+
+  // Income Congratulations Modal State
+  const [celebrationData, setCelebrationData] = useState<IncomeCelebrationData | null>(null);
+
+  const triggerIncomeCelebration = useCallback((data: IncomeCelebrationData) => {
+    setCelebrationData(data);
+  }, []);
+
+  const closeIncomeCelebration = useCallback(() => {
+    setCelebrationData(null);
   }, []);
 
   // Sync to local storage
@@ -333,6 +361,61 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setTransactions(prev => [newTxn, ...prev]);
     showNotification(`Deposit request of ₹${amount.toLocaleString()} submitted! Admin will verify and credit within 5-10 mins.`, 'success');
     return true;
+  };
+
+  const completeWatchPayDeposit = (orderId: string, amount: number, utrNumber: string, channelName: string) => {
+    const callbackServerIp = settings.watchpayCallbackIp || '18.141.88.123';
+    
+    // Create immediate completed transaction record
+    const newTxn: Transaction = {
+      id: `TXN-WP-${Date.now().toString().slice(-6)}`,
+      orderId: orderId,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userPhone: currentUser.phone,
+      type: 'deposit',
+      amount,
+      status: 'completed',
+      method: 'WatchPay',
+      channel: channelName,
+      utrNumber: utrNumber.trim(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      description: `WatchPay Instant Auto-Credit (+₹${amount.toLocaleString()}) via ${channelName}`,
+      approvedBy: `WatchPay Node (IP: ${callbackServerIp})`,
+    };
+
+    setTransactions(prev => [newTxn, ...prev]);
+
+    // Instantly credit user balance & recharge totals
+    setAllUsers(prev => prev.map(u => {
+      if (u.id === currentUser.id) {
+        return {
+          ...u,
+          balance: u.balance + amount,
+          totalRecharge: u.totalRecharge + amount,
+        };
+      }
+      return u;
+    }));
+
+    addAuditLog(
+      'WATCHPAY_DEPOSIT_SETTLED',
+      orderId,
+      `Instant recharge of ₹${amount.toLocaleString()} verified and credited from WatchPay callback node ${callbackServerIp} (Merchant: ${settings.watchpayMerchantNo || '222887002'}, Channel: ${channelName})`
+    );
+
+    sounds.playCash();
+    showNotification(`⚡ WatchPay Payment Verified! ₹${amount.toLocaleString()} credited to your wallet.`, 'success');
+
+    triggerIncomeCelebration({
+      title: 'WatchPay Recharge Successful!',
+      amount: amount,
+      source: 'bonus',
+      sourceTitle: `WatchPay Instant Cashier (${channelName})`,
+      newBalance: currentUser.balance + amount,
+      txId: newTxn.id,
+    });
   };
 
   const submitWithdrawalRequest = (amount: number, bankDetails: UserAccount['bankDetails']): { success: boolean; error?: string } => {
@@ -564,6 +647,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       sounds.playCoin();
       showNotification(`⚡ Flash Plan Matured! ₹${payout.toLocaleString()} (Principal + Profit) credited to your wallet!`, 'success');
+      triggerIncomeCelebration({
+        title: 'Flash Asset Matured!',
+        amount: payout,
+        source: 'dividend',
+        sourceTitle: `⚡ Instant Flash Settlement (${inv.planName})`,
+        planName: inv.planName,
+        newBalance: currentUser.balance + payout,
+        txId: newTxn.id,
+      });
       return { success: true };
     }
 
@@ -619,6 +711,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     sounds.playCoin();
     showNotification(`Daily Dividend of ₹${inv.dailyIncome.toLocaleString()} credited to your wallet!`, 'success');
+    triggerIncomeCelebration({
+      title: 'Daily Dividend Credited!',
+      amount: inv.dailyIncome,
+      source: 'dividend',
+      sourceTitle: `Production Yield: ${inv.planName}`,
+      planName: inv.planName,
+      dayProgress: `Day ${newDays}/${inv.cycleDays}`,
+      newBalance: currentUser.balance + inv.dailyIncome,
+      txId: newTxn.id,
+    });
     return { success: true };
   };
 
@@ -701,6 +803,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     sounds.playCoin();
     showNotification(`Successfully collected ₹${totalAmount.toLocaleString()} from ${claimable.length} active investments!`, 'success');
+    triggerIncomeCelebration({
+      title: 'Bulk Dividends Cleared!',
+      amount: totalAmount,
+      source: 'bulk_dividend',
+      sourceTitle: `Bulk Portfolio Settlement (${claimable.length} Assets Collected)`,
+      newBalance: currentUser.balance + totalAmount,
+      txId: newTxn.id,
+    });
     return { success: true, count: claimable.length, total: totalAmount };
   };
 
@@ -745,6 +855,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     sounds.playCash();
     showNotification(`₹${pendingAmount.toLocaleString()} Team Rebate credited to your wallet balance!`, 'success');
+    triggerIncomeCelebration({
+      title: 'Agency Rebate Credited!',
+      amount: pendingAmount,
+      source: 'referral',
+      sourceTitle: '3-Tier Downline Investment Turnover Rebate',
+      newBalance: currentUser.balance + pendingAmount,
+      txId: newTxn.id,
+    });
     return { success: true, amount: pendingAmount };
   };
 
@@ -786,6 +904,57 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     sounds.playCash();
     showNotification(`🏆 Milestone Bonus of ₹${amount.toLocaleString()} credited to your wallet balance!`, 'success');
+    triggerIncomeCelebration({
+      title: 'Agency Milestone Award!',
+      amount: amount,
+      source: 'milestone',
+      sourceTitle: `Agency Rank Milestone: ${title}`,
+      bonusTitle: title,
+      newBalance: currentUser.balance + amount,
+      txId: newTxn.id,
+    });
+    return { success: true };
+  };
+
+  const claimDailyAgencySalary = (amount: number, rankName: string): { success: boolean; error?: string } => {
+    setAllUsers(prev => prev.map(u => {
+      if (u.id === currentUser.id) {
+        return {
+          ...u,
+          balance: u.balance + amount,
+          totalEarned: u.totalEarned + amount,
+        };
+      }
+      return u;
+    }));
+
+    const newTxn: Transaction = {
+      id: `TXN-SAL-${Date.now().toString().slice(-6)}`,
+      orderId: `SALARY-${Date.now().toString().slice(-4)}`,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userPhone: currentUser.phone,
+      type: 'bonus',
+      subType: 'voucher',
+      amount: amount,
+      status: 'completed',
+      createdAt: new Date().toISOString(),
+      description: `Executive Agency Daily Salary: ${rankName} (+₹${amount.toLocaleString()})`,
+      proofHash: Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
+    };
+    setTransactions(prev => [newTxn, ...prev]);
+
+    sounds.playCash();
+    showNotification(`🎖️ Daily Agency Salary of ₹${amount.toLocaleString()} credited!`, 'success');
+    triggerIncomeCelebration({
+      title: 'Daily Agency Salary Credited!',
+      amount: amount,
+      source: 'milestone',
+      sourceTitle: `Executive Agency Daily Salary (${rankName})`,
+      bonusTitle: rankName,
+      newBalance: currentUser.balance + amount,
+      txId: newTxn.id,
+    });
     return { success: true };
   };
 
@@ -818,6 +987,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     sounds.playSuccess();
     showNotification(`Daily Check-in bonus of ₹${reward} and +1 Free Spin claimed!`, 'success');
+    triggerIncomeCelebration({
+      title: 'VIP Daily Check-In Bonus!',
+      amount: reward,
+      source: 'checkin',
+      sourceTitle: '24-Hour VIP Attendance Dividend (+1 Free Spin)',
+      newBalance: currentUser.balance + reward,
+      txId: newTxn.id,
+    });
     return { success: true, reward };
   };
 
@@ -852,6 +1029,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         description: `Lucky Spin Wheel Prize Won: ₹${reward}`,
       };
       setTransactions(prev => [newTxn, ...prev]);
+
+      triggerIncomeCelebration({
+        title: 'Lucky Fortune Jackpot!',
+        amount: reward,
+        source: 'spin',
+        sourceTitle: 'Fortune Golden Wheel Jackpot Win',
+        newBalance: currentUser.balance + reward,
+        txId: newTxn.id,
+      });
     }
 
     return { success: true };
@@ -1160,6 +1346,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     sounds.playCoin();
     showNotification(`Congratulations! ₹${targetCode.amount} credited to your wallet from voucher ${targetCode.code}!`, 'success');
+    triggerIncomeCelebration({
+      title: 'Gift Voucher Redeemed!',
+      amount: targetCode.amount,
+      source: 'voucher',
+      sourceTitle: `Promotional Gift Voucher: ${targetCode.code}`,
+      newBalance: currentUser.balance + targetCode.amount,
+      txId: newTxn.id,
+    });
     return { success: true, amount: targetCode.amount };
   };
 
@@ -1442,12 +1636,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setActiveAdminTab,
         showNotification,
         submitDepositRequest,
+        completeWatchPayDeposit,
         submitWithdrawalRequest,
         purchasePlan,
         claimDailyDividend,
         claimAllDividends,
         claimTeamCommission,
         claimMilestoneReward,
+        claimDailyAgencySalary,
         dailyCheckin,
         executeSpin,
         updateBankDetails,
@@ -1476,6 +1672,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dismissFraudAlert,
         exportDataToCsv,
         saveSettings,
+        updateSettings: saveSettings,
         resetToDefaults,
         recordsModalOpen,
         recordsDefaultTab,
@@ -1483,6 +1680,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         closeRecordsModal,
         theme,
         toggleTheme,
+        celebrationData,
+        triggerIncomeCelebration,
+        closeIncomeCelebration,
       }}
     >
       {children}

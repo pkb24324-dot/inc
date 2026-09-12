@@ -18,12 +18,17 @@ import {
   Sparkles,
   Layers,
   Flame,
+  Download,
+  AlertTriangle,
+  ChevronDown,
+  Lock,
+  Unlock,
   X
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
 export const AffiliateManager: React.FC = () => {
-  const { allUsers, settings, saveSettings, adjustUserBalance, theme } = useApp();
+  const { allUsers, settings, saveSettings, adjustUserBalance, toggleUserFrozen, showNotification, theme } = useApp();
   const isLight = theme === 'light';
 
   const [l1Percent, setL1Percent] = useState<number>(settings.referralL1Percent || 10);
@@ -32,6 +37,8 @@ export const AffiliateManager: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLeaderId, setSelectedLeaderId] = useState<string | null>(allUsers[0]?.id || null);
   const [selectedLeaderTier, setSelectedLeaderTier] = useState<1 | 2 | 3>(1);
+  const [adminViewMode, setAdminViewMode] = useState<'grid' | 'tree'>('grid');
+  const [expandedAdminNodes, setExpandedAdminNodes] = useState<Record<string, boolean>>({});
 
   // Bonus modal state
   const [bonusModalUser, setBonusModalUser] = useState<string | null>(null);
@@ -101,6 +108,55 @@ export const AffiliateManager: React.FC = () => {
     sounds.playSuccess();
   };
 
+  const applyPresetRates = (l1: number, l2: number, l3: number) => {
+    sounds.playClick();
+    setL1Percent(l1);
+    setL2Percent(l2);
+    setL3Percent(l3);
+  };
+
+  const exportAffiliatesCSV = () => {
+    sounds.playClick();
+    const headers = ['Rank', 'Name', 'Phone', 'Referral Code', 'VIP Level', 'Team Size', 'Total Recharged', 'Commissions Earned'];
+    const rows = leaderboard.map((u, idx) => [
+      idx + 1,
+      `"${u.name}"`,
+      u.phone,
+      u.referralCode,
+      `VIP ${u.vipLevel}`,
+      u.referralsCount || 0,
+      u.totalRecharge || 0,
+      u.teamCommission || 0
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Affiliate_Network_Audit_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showNotification('Affiliate audit CSV downloaded successfully!', 'success');
+  };
+
+  const leaderRiskMetrics = useMemo(() => {
+    if (!selectedLeader) return { inactiveRatio: 0, sybilRisk: 'low', zeroRechargeCount: 0, totalSubs: 0 };
+    const allSubs = [...leaderL1, ...leaderL2, ...leaderL3];
+    if (allSubs.length === 0) return { inactiveRatio: 0, sybilRisk: 'low', zeroRechargeCount: 0, totalSubs: 0 };
+    const zeroRecharge = allSubs.filter(u => (u.totalRecharge || 0) === 0);
+    const ratio = Math.round((zeroRecharge.length / allSubs.length) * 100);
+    const sybilRisk = ratio >= 75 && allSubs.length >= 4 ? 'high' : ratio >= 50 ? 'medium' : 'low';
+    return { inactiveRatio: ratio, sybilRisk, zeroRechargeCount: zeroRecharge.length, totalSubs: allSubs.length };
+  }, [selectedLeader, leaderL1, leaderL2, leaderL3]);
+
+  const toggleAdminTreeNode = (nodeId: string) => {
+    sounds.playClick();
+    setExpandedAdminNodes(prev => ({
+      ...prev,
+      [nodeId]: !prev[nodeId]
+    }));
+  };
+
   return (
     <div className={`space-y-6 transition-colors ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>
       
@@ -116,6 +172,17 @@ export const AffiliateManager: React.FC = () => {
           <p className={`text-xs ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
             Inspect Level 1/2/3 team hierarchies, tune multi-level dividend splits & reward top platform promoters
           </p>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportAffiliatesCSV}
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all active:scale-95"
+            title="Download CSV Audit of all affiliates and downlines"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export Audit CSV</span>
+          </button>
         </div>
       </div>
 
@@ -278,6 +345,48 @@ export const AffiliateManager: React.FC = () => {
               />
             </div>
 
+            {/* Quick Strategy Presets */}
+            <div className="space-y-1.5 pt-1">
+              <span className={`text-[11px] font-bold block ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                Quick Strategy Presets
+              </span>
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => applyPresetRates(10, 5, 2)}
+                  className={`py-1.5 px-1 text-center rounded-xl text-[10px] font-bold border transition-colors ${
+                    l1Percent === 10 && l2Percent === 5 && l3Percent === 2
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                  }`}
+                >
+                  Standard<br/><span className="text-[9px] opacity-80">10/5/2%</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPresetRates(15, 7, 3)}
+                  className={`py-1.5 px-1 text-center rounded-xl text-[10px] font-bold border transition-colors ${
+                    l1Percent === 15 && l2Percent === 7 && l3Percent === 3
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                  }`}
+                >
+                  High Growth<br/><span className="text-[9px] opacity-80">15/7/3%</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPresetRates(20, 10, 5)}
+                  className={`py-1.5 px-1 text-center rounded-xl text-[10px] font-bold border transition-colors ${
+                    l1Percent === 20 && l2Percent === 10 && l3Percent === 5
+                      ? 'bg-amber-600 text-white border-amber-600'
+                      : isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                  }`}
+                >
+                  VIP Surge<br/><span className="text-[9px] opacity-80">20/10/5%</span>
+                </button>
+              </div>
+            </div>
+
             <button
               type="submit"
               className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/30 transition-all active:scale-95"
@@ -397,88 +506,323 @@ export const AffiliateManager: React.FC = () => {
               <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b ${
                 isLight ? 'border-slate-100' : 'border-slate-800'
               }`}>
-                <div className="flex items-center space-x-2">
-                  <Network className="w-4 h-4 text-emerald-500" />
-                  <h4 className={`font-extrabold text-sm font-['Outfit'] ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                    Tree Hierarchy: {selectedLeader.name} (Code: {selectedLeader.referralCode})
-                  </h4>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <Network className="w-4 h-4 text-emerald-500" />
+                    <h4 className={`font-extrabold text-sm font-['Outfit'] ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                      Network Inspector: {selectedLeader.name}
+                    </h4>
+                  </div>
+                  <span className={`text-[11px] font-mono ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                    Referral Code: <span className="font-bold text-indigo-600 dark:text-blue-400">{selectedLeader.referralCode}</span> • Wallet: ₹{(selectedLeader.balance || 0).toLocaleString()}
+                  </span>
                 </div>
 
-                {/* Tier Switcher for selected leader */}
+                {/* Grid / Tree Mode Switcher */}
                 <div className={`p-1 rounded-xl border flex space-x-1 ${
                   isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950 border-slate-800'
                 }`}>
                   <button
-                    onClick={() => setSelectedLeaderTier(1)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                      selectedLeaderTier === 1 
-                        ? 'bg-indigo-600 text-white shadow-sm' 
+                    onClick={() => { sounds.playClick(); setAdminViewMode('grid'); }}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      adminViewMode === 'grid'
+                        ? 'bg-indigo-600 text-white shadow-sm'
                         : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    Level 1 ({leaderL1.length})
+                    Tier Grid
                   </button>
                   <button
-                    onClick={() => setSelectedLeaderTier(2)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                      selectedLeaderTier === 2 
-                        ? 'bg-blue-600 text-white shadow-sm' 
+                    onClick={() => { sounds.playClick(); setAdminViewMode('tree'); }}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      adminViewMode === 'tree'
+                        ? 'bg-emerald-600 text-white shadow-sm'
                         : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    Level 2 ({leaderL2.length})
-                  </button>
-                  <button
-                    onClick={() => setSelectedLeaderTier(3)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                      selectedLeaderTier === 3 
-                        ? 'bg-purple-600 text-white shadow-sm' 
-                        : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Level 3 ({leaderL3.length})
+                    Interactive Tree
                   </button>
                 </div>
               </div>
 
-              {currentTierUsers.length === 0 ? (
-                <div className={`text-center py-6 rounded-2xl border ${
-                  isLight ? 'bg-slate-50 border-slate-200 text-slate-500' : 'bg-slate-950 border-slate-800 text-slate-400'
-                }`}>
-                  <Users className="w-8 h-8 mx-auto mb-1 opacity-40" />
-                  <p className="text-xs font-bold">No members in Level {selectedLeaderTier} for this user</p>
+              {/* Sybil & Downline Health Diagnostics */}
+              <div className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                leaderRiskMetrics.sybilRisk === 'high'
+                  ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50'
+                  : leaderRiskMetrics.sybilRisk === 'medium'
+                  ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/50'
+                  : isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
+              }`}>
+                <div className="flex items-start space-x-3">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                    leaderRiskMetrics.sybilRisk === 'high'
+                      ? 'bg-rose-500 text-white'
+                      : leaderRiskMetrics.sybilRisk === 'medium'
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-emerald-500 text-white'
+                  }`}>
+                    {leaderRiskMetrics.sybilRisk === 'high' ? (
+                      <AlertTriangle className="w-4 h-4" />
+                    ) : leaderRiskMetrics.sybilRisk === 'medium' ? (
+                      <AlertTriangle className="w-4 h-4" />
+                    ) : (
+                      <ShieldCheck className="w-4 h-4" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className={`text-xs font-black ${
+                        leaderRiskMetrics.sybilRisk === 'high'
+                          ? 'text-rose-700 dark:text-rose-400'
+                          : leaderRiskMetrics.sybilRisk === 'medium'
+                          ? 'text-amber-700 dark:text-amber-400'
+                          : 'text-emerald-700 dark:text-emerald-400'
+                      }`}>
+                        {leaderRiskMetrics.sybilRisk === 'high'
+                          ? 'High Sybil / Bot Loop Warning'
+                          : leaderRiskMetrics.sybilRisk === 'medium'
+                          ? 'Moderate Inactive Network Drift'
+                          : 'Healthy & Verified Organic Downline'}
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-white/60 dark:bg-black/30 border">
+                        {leaderRiskMetrics.inactiveRatio}% Inactive
+                      </span>
+                    </div>
+                    <p className={`text-[11px] mt-0.5 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                      Total Network Nodes: <b>{leaderRiskMetrics.totalSubs}</b> • Zero-Recharge Accounts: <b>{leaderRiskMetrics.zeroRechargeCount}</b> • Active Depositors: <b>{leaderRiskMetrics.totalSubs - leaderRiskMetrics.zeroRechargeCount}</b>
+                    </p>
+                  </div>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  {currentTierUsers.map(d => {
-                    const commissionYield = Math.round((d.totalRecharge || 0) * (currentTierRate / 100));
-                    return (
-                      <div 
-                        key={d.id} 
-                        className={`p-3 rounded-2xl border flex justify-between items-center transition-all ${
-                          isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center space-x-1.5">
-                            <span className={`font-bold block ${isLight ? 'text-slate-900' : 'text-white'}`}>{d.name}</span>
-                            <span className="text-[9px] text-amber-500 font-bold">VIP {d.vipLevel}</span>
+
+                <div className="flex items-center space-x-2 self-end sm:self-center">
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      toggleUserFrozen(selectedLeader.id);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors flex items-center space-x-1.5 ${
+                      selectedLeader.isFrozen
+                        ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-600'
+                        : isLight ? 'bg-slate-200 hover:bg-slate-300 text-slate-800 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                    }`}
+                  >
+                    {selectedLeader.isFrozen ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                    <span>{selectedLeader.isFrozen ? 'Unfreeze Promoter' : 'Freeze Promoter'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {adminViewMode === 'grid' ? (
+                <>
+                  {/* Tier Filter Buttons */}
+                  <div className={`p-1 rounded-xl border flex space-x-1 ${
+                    isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950 border-slate-800'
+                  }`}>
+                    <button
+                      onClick={() => setSelectedLeaderTier(1)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                        selectedLeaderTier === 1 
+                          ? 'bg-indigo-600 text-white shadow-sm' 
+                          : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Level 1 ({leaderL1.length})
+                    </button>
+                    <button
+                      onClick={() => setSelectedLeaderTier(2)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                        selectedLeaderTier === 2 
+                          ? 'bg-blue-600 text-white shadow-sm' 
+                          : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Level 2 ({leaderL2.length})
+                    </button>
+                    <button
+                      onClick={() => setSelectedLeaderTier(3)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                        selectedLeaderTier === 3 
+                          ? 'bg-purple-600 text-white shadow-sm' 
+                          : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Level 3 ({leaderL3.length})
+                    </button>
+                  </div>
+
+                  {currentTierUsers.length === 0 ? (
+                    <div className={`text-center py-6 rounded-2xl border ${
+                      isLight ? 'bg-slate-50 border-slate-200 text-slate-500' : 'bg-slate-950 border-slate-800 text-slate-400'
+                    }`}>
+                      <Users className="w-8 h-8 mx-auto mb-1 opacity-40" />
+                      <p className="text-xs font-bold">No members in Level {selectedLeaderTier} for this user</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      {currentTierUsers.map(d => {
+                        const commissionYield = Math.round((d.totalRecharge || 0) * (currentTierRate / 100));
+                        return (
+                          <div 
+                            key={d.id} 
+                            className={`p-3 rounded-2xl border flex justify-between items-center transition-all ${
+                              isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
+                            }`}
+                          >
+                            <div>
+                              <div className="flex items-center space-x-1.5">
+                                <span className={`font-bold block ${isLight ? 'text-slate-900' : 'text-white'}`}>{d.name}</span>
+                                <span className="text-[9px] text-amber-500 font-bold">VIP {d.vipLevel}</span>
+                                {d.isFrozen && (
+                                  <span className="text-[9px] bg-rose-500/20 text-rose-500 font-bold px-1.5 py-0.2 rounded">FROZEN</span>
+                                )}
+                              </div>
+                              <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                                {d.phone} • Ref: {d.referredBy || 'None'}
+                              </span>
+                            </div>
+                            <div className="text-right font-mono">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold block">
+                                +₹{commissionYield.toLocaleString()}
+                              </span>
+                              <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                                Recharge: ₹{(d.totalRecharge || 0).toLocaleString()}
+                              </span>
+                            </div>
                           </div>
-                          <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-                            {d.phone} • Ref: {d.referredBy || 'None'}
-                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Interactive Hierarchical Tree Mode */
+                <div className="space-y-3">
+                  <div className={`p-3 rounded-2xl border ${
+                    isLight ? 'bg-indigo-50/60 border-indigo-100' : 'bg-indigo-950/20 border-indigo-900/40'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">
+                          P
                         </div>
-                        <div className="text-right font-mono">
-                          <span className="text-emerald-600 dark:text-emerald-400 font-bold block">
-                            +₹{commissionYield.toLocaleString()}
+                        <div>
+                          <span className={`font-bold text-xs ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                            Root Promoter: {selectedLeader.name}
                           </span>
-                          <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-                            Recharge: ₹{(d.totalRecharge || 0).toLocaleString()}
+                          <span className="text-[10px] block text-indigo-600 dark:text-indigo-400 font-mono">
+                            Referrals: {selectedLeader.referralsCount || 0} • Code: {selectedLeader.referralCode}
                           </span>
                         </div>
                       </div>
-                    );
-                  })}
+                      <span className="text-xs font-mono font-black text-emerald-600 dark:text-emerald-400">
+                        ₹{(selectedLeader.teamCommission || 0).toLocaleString()} Earned
+                      </span>
+                    </div>
+                  </div>
+
+                  {leaderL1.length === 0 ? (
+                    <div className={`text-center py-6 rounded-2xl border ${
+                      isLight ? 'bg-slate-50 border-slate-200 text-slate-500' : 'bg-slate-950 border-slate-800 text-slate-400'
+                    }`}>
+                      <Users className="w-7 h-7 mx-auto mb-1 opacity-40" />
+                      <p className="text-xs font-bold">No direct invites connected</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 pl-3 border-l-2 border-dashed border-indigo-300 dark:border-indigo-800">
+                      {leaderL1.map(l1 => {
+                        const l1Children = leaderL2.filter(sub => sub.referredBy === l1.referralCode);
+                        const isExpanded = !!expandedAdminNodes[l1.id];
+                        return (
+                          <div key={l1.id} className="space-y-1.5">
+                            <div className={`p-3 rounded-2xl border flex items-center justify-between transition-all ${
+                              isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
+                            }`}>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={() => toggleAdminTreeNode(l1.id)}
+                                  className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs transition-colors ${
+                                    isLight ? 'bg-slate-200 hover:bg-slate-300 text-slate-700' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                                  }`}
+                                >
+                                  {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                                </button>
+                                <div>
+                                  <div className="flex items-center space-x-1.5">
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">L1</span>
+                                    <span className={`font-bold text-xs ${isLight ? 'text-slate-900' : 'text-white'}`}>{l1.name}</span>
+                                    <span className="text-[9px] text-amber-500 font-bold">VIP {l1.vipLevel}</span>
+                                  </div>
+                                  <span className={`text-[10px] font-mono ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                                    {l1.phone} • {l1Children.length} Sub-invites
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center space-x-3">
+                                <div className="text-right font-mono text-xs">
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-bold block">
+                                    ₹{(l1.totalRecharge || 0).toLocaleString()}
+                                  </span>
+                                  <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                                    Yield: ₹{Math.round((l1.totalRecharge || 0) * (l1Percent / 100)).toLocaleString()}
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => { sounds.playClick(); toggleUserFrozen(l1.id); }}
+                                  title={l1.isFrozen ? 'Unfreeze' : 'Freeze'}
+                                  className={`p-1.5 rounded-lg border ${
+                                    l1.isFrozen 
+                                      ? 'bg-rose-500 text-white border-rose-600' 
+                                      : isLight ? 'bg-slate-100 text-slate-600 border-slate-300' : 'bg-slate-800 text-slate-300 border-slate-700'
+                                  }`}
+                                >
+                                  {l1.isFrozen ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Level 2 Sub-Children */}
+                            {isExpanded && (
+                              <div className="pl-6 space-y-1.5 border-l-2 border-dashed border-blue-300 dark:border-blue-800">
+                                {l1Children.length === 0 ? (
+                                  <p className={`text-[11px] italic py-1 ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    No secondary recruits under this member
+                                  </p>
+                                ) : (
+                                  l1Children.map(l2 => {
+                                    const l2Children = leaderL3.filter(sub => sub.referredBy === l2.referralCode);
+                                    return (
+                                      <div key={l2.id} className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${
+                                        isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'
+                                      }`}>
+                                        <div className="flex items-center space-x-2">
+                                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-600 dark:text-blue-400">L2</span>
+                                          <div>
+                                            <span className={`font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>{l2.name}</span>
+                                            <span className={`text-[10px] block font-mono ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>
+                                              {l2.phone} ({l2Children.length} L3 downlines)
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <div className="text-right font-mono">
+                                          <span className="text-blue-600 dark:text-blue-400 font-bold block">
+                                            ₹{(l2.totalRecharge || 0).toLocaleString()}
+                                          </span>
+                                          <span className={`text-[10px] ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>
+                                            Yield: ₹{Math.round((l2.totalRecharge || 0) * (l2Percent / 100)).toLocaleString()}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

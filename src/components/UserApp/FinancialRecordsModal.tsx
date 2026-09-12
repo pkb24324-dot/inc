@@ -367,37 +367,39 @@ export const FinancialRecordsModal: React.FC<Props> = ({
         {/* Top Header */}
         <div className={`${
           isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/90 border-slate-800'
-        } border-b px-4 py-3 flex items-center justify-between flex-shrink-0`}>
-          <div className="flex items-center space-x-2.5">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+        } border-b px-3.5 py-2 flex items-center justify-between flex-shrink-0`}>
+          <div className="flex items-center space-x-2">
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
               isLight ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
             }`}>
-              <FileText className="w-5 h-5" />
+              <FileText className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-black flex items-center space-x-2 font-['Outfit']">
-                <span>Advance Financial Passbook</span>
-                <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full font-mono ${
+              <div className="flex items-center space-x-1.5">
+                <h2 className="text-xs sm:text-sm font-bold flex items-center space-x-1.5 font-['Outfit']">
+                  <span>Advance Financial Passbook</span>
+                </h2>
+                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full font-mono ${
                   isLight ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                 }`}>
                   NPCI 24×7
                 </span>
-              </h2>
-              <p className="text-[11px] text-slate-500">
-                Audited transaction ledger, running balances & verified slips
+              </div>
+              <p className="text-[10px] text-slate-500 hidden sm:block">
+                Audited transaction ledger & verified slips
               </p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-1.5">
+          <div className="flex items-center space-x-1">
             {/* View Mode Switcher */}
-            <div className={`flex rounded-xl p-0.5 border ${
+            <div className={`flex rounded-lg p-0.5 border ${
               isLight ? 'bg-slate-200/70 border-slate-300' : 'bg-slate-800 border-slate-700'
             }`}>
               <button
                 onClick={() => { setViewMode('stream'); sounds.playClick(); }}
                 title="Cards Stream"
-                className={`p-1.5 rounded-lg transition-all ${
+                className={`p-1 rounded-md transition-all ${
                   viewMode === 'stream' 
                     ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white' 
                     : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
@@ -408,7 +410,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
               <button
                 onClick={() => { setViewMode('passbook'); sounds.playClick(); }}
                 title="Bank Table Passbook"
-                className={`p-1.5 rounded-lg transition-all ${
+                className={`p-1 rounded-md transition-all ${
                   viewMode === 'passbook' 
                     ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white' 
                     : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
@@ -419,7 +421,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
               <button
                 onClick={() => { setViewMode('analytics'); sounds.playClick(); }}
                 title="Cashflow Analytics"
-                className={`p-1.5 rounded-lg transition-all ${
+                className={`p-1 rounded-md transition-all ${
                   viewMode === 'analytics' 
                     ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white' 
                     : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
@@ -432,7 +434,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
             <button
               onClick={() => setIsStatementOpen(true)}
               title="Official Statement"
-              className={`p-2 rounded-xl border text-xs font-bold transition-colors ${
+              className={`p-1.5 rounded-lg border text-xs font-bold transition-colors ${
                 isLight ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
               }`}
             >
@@ -442,7 +444,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
             <button
               onClick={handleRefresh}
               title="Refresh ledger"
-              className={`p-2 rounded-xl border transition-colors ${
+              className={`p-1.5 rounded-lg border transition-colors ${
                 isLight ? 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
               }`}
             >
@@ -451,7 +453,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
 
             <button
               onClick={onClose}
-              className={`p-2 rounded-xl transition-colors ${
+              className={`p-1.5 rounded-lg transition-colors ${
                 isLight ? 'hover:bg-slate-100 text-slate-400 hover:text-slate-800' : 'hover:bg-slate-800 text-slate-400 hover:text-white'
               }`}
             >
@@ -463,8 +465,8 @@ export const FinancialRecordsModal: React.FC<Props> = ({
         {/* 4 Segmented Category Tab Selector Bar */}
         <div className={`${
           isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-900/60 border-slate-800'
-        } border-b px-3 py-2 flex-shrink-0 overflow-x-auto scrollbar-none`}>
-          <div className="flex space-x-2 min-w-max">
+        } border-b px-3 py-1.5 flex-shrink-0 overflow-x-auto scrollbar-none`}>
+          <div className="flex space-x-1.5 min-w-max">
             
             {/* Recharge Tab */}
             <button
@@ -473,9 +475,9 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                 setCurrentPage(1);
                 sounds.playClick();
               }}
-              className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center space-x-1.5 transition-all ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all ${
                 activeTab === 'recharge'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/30'
                   : isLight 
                     ? 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200' 
                     : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
@@ -497,9 +499,9 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                 setCurrentPage(1);
                 sounds.playClick();
               }}
-              className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center space-x-1.5 transition-all ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all ${
                 activeTab === 'income'
-                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                  ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
                   : isLight 
                     ? 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200' 
                     : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
@@ -521,9 +523,9 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                 setCurrentPage(1);
                 sounds.playClick();
               }}
-              className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center space-x-1.5 transition-all ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all ${
                 activeTab === 'withdrawal'
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm shadow-amber-500/30'
                   : isLight 
                     ? 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200' 
                     : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
@@ -545,9 +547,9 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                 setCurrentPage(1);
                 sounds.playClick();
               }}
-              className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center space-x-1.5 transition-all ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all ${
                 activeTab === 'all'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
                   : isLight 
                     ? 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200' 
                     : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
@@ -560,15 +562,15 @@ export const FinancialRecordsModal: React.FC<Props> = ({
         </div>
 
         {/* Tab-Specific KPI Banner & Running Balances Summary */}
-        <div className="p-3 pb-2 flex-shrink-0">
-          <div className={`grid grid-cols-3 gap-2 p-3 rounded-2xl border ${
+        <div className="px-3 py-1.5 flex-shrink-0">
+          <div className={`grid grid-cols-3 gap-2 p-2 rounded-xl border ${
             isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/90 border-slate-800/80'
           }`}>
             {activeTab === 'recharge' && (
               <>
                 <div>
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Total Recharged</span>
-                  <span className="text-base font-black font-mono text-emerald-600 dark:text-emerald-400">
+                  <span className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400">
                     ₹{metrics.totalRechargeSuccess.toLocaleString()}
                   </span>
                 </div>
@@ -608,19 +610,19 @@ export const FinancialRecordsModal: React.FC<Props> = ({
               <>
                 <div>
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Total Profit</span>
-                  <span className="text-base font-black font-mono text-emerald-600 dark:text-emerald-400">
+                  <span className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400">
                     ₹{metrics.totalProfitEarned.toLocaleString()}
                   </span>
                 </div>
                 <div className={`border-x px-2 ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Today's Accrual</span>
-                  <span className="text-base font-black font-mono text-emerald-600 dark:text-emerald-400">
+                  <span className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400">
                     +₹{metrics.todayIncome.toLocaleString()}
                   </span>
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Team Rebate</span>
-                  <span className="text-base font-black font-mono text-purple-600 dark:text-purple-400">
+                  <span className="text-sm font-black font-mono text-purple-600 dark:text-purple-400">
                     ₹{metrics.teamCommission.toLocaleString()}
                   </span>
                 </div>
@@ -631,13 +633,13 @@ export const FinancialRecordsModal: React.FC<Props> = ({
               <>
                 <div>
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Total Withdrawn</span>
-                  <span className="text-base font-black font-mono text-amber-600 dark:text-amber-400">
+                  <span className="text-sm font-black font-mono text-amber-600 dark:text-amber-400">
                     ₹{metrics.totalWithdrawalSuccess.toLocaleString()}
                   </span>
                 </div>
                 <div className={`border-x px-2 ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">In Bank Clearing</span>
-                  <span className={`text-base font-black font-mono ${metrics.pendingWithdrawals > 0 ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`}>
+                  <span className={`text-sm font-black font-mono ${metrics.pendingWithdrawals > 0 ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`}>
                     ₹{metrics.pendingWithdrawals.toLocaleString()}
                   </span>
                 </div>
@@ -655,13 +657,13 @@ export const FinancialRecordsModal: React.FC<Props> = ({
               <>
                 <div>
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Ledger Entries</span>
-                  <span className="text-base font-black font-mono text-slate-800 dark:text-white">
+                  <span className="text-sm font-black font-mono text-slate-800 dark:text-white">
                     {metrics.totalCount}
                   </span>
                 </div>
                 <div className={`border-x px-2 ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Live Wallet Balance</span>
-                  <span className="text-base font-black font-mono text-emerald-600 dark:text-emerald-400">
+                  <span className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400">
                     ₹{currentUser.balance.toLocaleString()}
                   </span>
                 </div>
