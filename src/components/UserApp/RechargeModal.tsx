@@ -475,6 +475,7 @@ export const RechargeModal: React.FC<Props> = ({ isOpen, onClose, defaultAmount 
         merchantNo={settings.watchpayMerchantNo || '100666859'}
         payKey={settings.watchpayPayKey || '4abd8ad7b8a44bfcbeaa8ad8e30dae30'}
         payType={selectedPayType}
+        domain={settings.watchpayDomain || 'https://api.watchpay.net'}
         onSuccess={handleWatchPaySuccess}
       />
     </>

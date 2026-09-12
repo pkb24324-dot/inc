@@ -336,44 +336,42 @@ export const WATCHPAY_PRESETS: Record<string, WatchPayCountryPreset> = {
   },
 };
 
-// Simple pseudo-MD5 / hash calculation for signing requests
+import { md5 } from './md5';
+
+// Real RFC 1321 MD5 calculation for WatchPay Gateway
 export function calculateWatchPaySign(params: Record<string, string | number>, key: string): string {
   // 1. Filter out null, undefined, empty strings and "sign" itself
   const keys = Object.keys(params)
     .filter(k => k !== 'sign' && params[k] !== undefined && params[k] !== null && String(params[k]).trim() !== '')
     .sort();
 
-  // 2. Build string: param1=val1&param2=val2...&key=KEY
+  // 2. Build parameter string: param1=val1&param2=val2...&key=KEY
   const paramString = keys.map(k => `${k}=${params[k]}`).join('&') + `&key=${key}`;
 
-  // 3. Generate 32-character hexadecimal MD5 simulation
-  let hash = 0;
-  for (let i = 0; i < paramString.length; i++) {
-    const char = paramString.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash |= 0;
-  }
-  
-  // Deterministic 32-char hex string derived from paramString & key
-  const baseHex = Math.abs(hash).toString(16).padStart(8, '0');
-  const tailHex = key.slice(0, 8);
-  const middle = paramString.length.toString(16).padStart(4, '0');
-  const salt = 'wp89a';
-  
-  return (baseHex + tailHex + middle + salt + '1e4c8b92d0').slice(0, 32);
+  // 3. Compute real RFC 1321 MD5 hash
+  return md5(paramString);
 }
 
 // Build official WatchPay Deposit (/pay/web) request object
 export interface WatchPayDepositRequest {
+  mchId: string;
   merchant_no: string;
+  merOrderId: string;
   order_no: string;
+  orderAmount: string;
   amount: string;
+  payType: string;
   pay_type: string;
+  signType: string;
+  sign_type: string;
+  notifyUrl: string;
   notify_url: string;
+  returnUrl: string;
   return_url: string;
-  goods_name?: string;
-  custom?: string;
+  goodsName: string;
+  goods_name: string;
   sign: string;
+  [key: string]: string;
 }
 
 export function buildWatchPayDepositPayload(options: {
@@ -381,41 +379,94 @@ export function buildWatchPayDepositPayload(options: {
   payKey: string;
   amount: number;
   payType: string;
+  domain?: string;
   orderNo?: string;
   notifyUrl?: string;
   returnUrl?: string;
-}): { payload: WatchPayDepositRequest; cashierUrl: string; signStringPreview: string } {
-  const orderNo = options.orderNo || `WP-DEP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+}): { 
+  payload: WatchPayDepositRequest; 
+  cashierUrl: string; 
+  signStringPreview: string;
+  postParams: Record<string, string>;
+  standardUrl: string;
+} {
+  const baseDomain = (options.domain || 'https://api.watchpay.net').replace(/\/+$/, '');
+  const orderNo = options.orderNo || `WP${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
   const amountStr = options.amount.toFixed(2);
-  const notifyUrl = options.notifyUrl || 'https://client-api.global/api/watchpay/callback';
-  const returnUrl = options.returnUrl || 'https://client-api.global/pay/success';
+  const notifyUrl = options.notifyUrl || (typeof window !== 'undefined' ? `${window.location.origin}/api/watchpay/callback` : 'https://api.watchpay.net/callback');
+  const returnUrl = options.returnUrl || (typeof window !== 'undefined' ? `${window.location.origin}/` : 'https://api.watchpay.net/return');
 
-  const rawParams: Record<string, string | number> = {
-    amount: amountStr,
-    goods_name: `Treasury Wallet Deposit ${amountStr}`,
-    merchant_no: options.merchantNo,
-    notify_url: notifyUrl,
-    order_no: orderNo,
-    pay_type: options.payType,
-    return_url: returnUrl,
+  // The primary signing parameters required by the gateway:
+  // Gateway requires: mchId, merOrderId, orderAmount, payType, signType, notifyUrl, returnUrl
+  const signParams: Record<string, string | number> = {
+    goodsName: `Recharge ${amountStr}`,
+    mchId: options.merchantNo,
+    merOrderId: orderNo,
+    notifyUrl: notifyUrl,
+    orderAmount: amountStr,
+    payType: options.payType,
+    returnUrl: returnUrl,
+    signType: 'MD5',
   };
 
-  const sign = calculateWatchPaySign(rawParams, options.payKey);
+  const sign = calculateWatchPaySign(signParams, options.payKey);
+
+  // Full payload containing both camelCase and snake_case alias parameters for 100% gateway compatibility
   const payload: WatchPayDepositRequest = {
-    ...rawParams,
-    goods_name: String(rawParams.goods_name),
-    merchant_no: String(rawParams.merchant_no),
-    notify_url: String(rawParams.notify_url),
-    order_no: String(rawParams.order_no),
-    pay_type: String(rawParams.pay_type),
-    return_url: String(rawParams.return_url),
+    mchId: options.merchantNo,
+    merchant_no: options.merchantNo,
+    merOrderId: orderNo,
+    order_no: orderNo,
+    orderAmount: amountStr,
     amount: amountStr,
+    payType: options.payType,
+    pay_type: options.payType,
+    signType: 'MD5',
+    sign_type: 'MD5',
+    notifyUrl: notifyUrl,
+    notify_url: notifyUrl,
+    returnUrl: returnUrl,
+    return_url: returnUrl,
+    goodsName: `Recharge ${amountStr}`,
+    goods_name: `Recharge ${amountStr}`,
     sign,
   };
 
-  const sortedKeys = Object.keys(rawParams).sort();
-  const signStringPreview = sortedKeys.map(k => `${k}=${rawParams[k]}`).join('&') + `&key=${options.payKey}`;
-  const cashierUrl = `https://api.watchpay.net/pay/web?merchant_no=${options.merchantNo}&order_no=${orderNo}&amount=${amountStr}&pay_type=${options.payType}&sign=${sign}`;
+  const sortedKeys = Object.keys(signParams).sort();
+  const signStringPreview = sortedKeys.map(k => `${k}=${signParams[k]}`).join('&') + `&key=${options.payKey}`;
+  
+  // Standard Cashier URL with mchId, merOrderId, orderAmount, payType, signType, sign
+  const queryParams = new URLSearchParams({
+    mchId: options.merchantNo,
+    merchant_no: options.merchantNo,
+    merOrderId: orderNo,
+    order_no: orderNo,
+    orderAmount: amountStr,
+    amount: amountStr,
+    payType: options.payType,
+    pay_type: options.payType,
+    signType: 'MD5',
+    sign_type: 'MD5',
+    notifyUrl: notifyUrl,
+    returnUrl: returnUrl,
+    goodsName: `Recharge ${amountStr}`,
+    sign: sign,
+  });
 
-  return { payload, cashierUrl, signStringPreview };
+  const cashierUrl = `${baseDomain}/pay/web?${queryParams.toString()}`;
+  const standardUrl = `${baseDomain}/pay/web?mchId=${options.merchantNo}&merOrderId=${orderNo}&orderAmount=${amountStr}&payType=${options.payType}&signType=MD5&notifyUrl=${encodeURIComponent(notifyUrl)}&returnUrl=${encodeURIComponent(returnUrl)}&sign=${sign}`;
+
+  const postParams: Record<string, string> = {
+    mchId: options.merchantNo,
+    merOrderId: orderNo,
+    orderAmount: amountStr,
+    payType: options.payType,
+    signType: 'MD5',
+    notifyUrl: notifyUrl,
+    returnUrl: returnUrl,
+    goodsName: `Recharge ${amountStr}`,
+    sign: sign,
+  };
+
+  return { payload, cashierUrl, signStringPreview, postParams, standardUrl };
 }
