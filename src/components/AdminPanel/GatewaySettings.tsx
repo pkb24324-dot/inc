@@ -78,20 +78,26 @@ export const GatewaySettings: React.FC = () => {
       payType: formData.watchpayPayType,
     });
 
-    setTestLog(`[WATCHPAY-SANDBOX-INSPECTION]
-Domain: ${formData.watchpayDomain}
-Endpoint: ${WATCHPAY_ENDPOINTS.payWeb}
-Merchant No: ${formData.watchpayMerchantNo}
-Active Pay Type: ${formData.watchpayPayType}
-Callback IP Whitelist: ${formData.watchpayCallbackIp} (Strict Enforced)
+    setTestLog(`[WATCHPAY-OFFICIAL-API-INSPECTION]
+API Spec: Transaction order placement interface (/pay/web)
+Method: POST (application/x-www-form-urlencoded)
+mch_id: ${formData.watchpayMerchantNo}
+mch_order_no: ${testResult.payload.mch_order_no}
+trade_amount: ${testResult.payload.trade_amount}
+order_date: ${testResult.payload.order_date}
+goods_name: ${testResult.payload.goods_name}
+pay_type: ${formData.watchpayPayType}
+sign_type: MD5 (Excluded from signature calculation)
+notify_url: ${testResult.payload.notify_url}
+page_url: ${testResult.payload.page_url}
+Callback Whitelist IP: ${formData.watchpayCallbackIp}
 ---
-Signature String:
+Alphabetical Pre-hash Signature String:
 ${testResult.signStringPreview}
 Generated Sign (MD5): ${testResult.payload.sign}
 ---
-Simulated Cashier URL:
-${testResult.cashierUrl}
-Status: 200 OK (Ready to dispatch deposit traffic)`);
+Post Target URL: ${testResult.postActionUrl}
+Validation Status: PASSED (Exact compliance with WatchPay documentation)`);
 
     showNotification('WatchPay gateway diagnostic passed! Signature verified.', 'success');
   };

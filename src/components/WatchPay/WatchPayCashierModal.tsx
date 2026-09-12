@@ -10,18 +10,17 @@ import {
   ShieldCheck, 
   Smartphone, 
   RefreshCw,
-  AlertCircle,
   ChevronDown,
   ChevronUp,
   CreditCard,
   Lock,
-  ArrowRight
+  ArrowRight,
+  Globe
 } from 'lucide-react';
 import { WatchPayLogo } from './WatchPayLogo';
 import { 
   buildWatchPayDepositPayload, 
-  WATCHPAY_CALLBACK_IP,
-  WATCHPAY_ENDPOINTS 
+  WATCHPAY_CALLBACK_IP 
 } from '../../utils/watchpay';
 import { sounds } from '../../utils/audio';
 
@@ -53,9 +52,11 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
   const [isVerifying, setIsVerifying] = useState(false);
   const [status, setStatus] = useState<'pending' | 'opened_page' | 'verifying' | 'success'>('pending');
   const [cashierUrl, setCashierUrl] = useState<string>('');
-  const [standardUrl, setStandardUrl] = useState<string>('');
   const [signPreview, setSignPreview] = useState<string>('');
   const [postParams, setPostParams] = useState<Record<string, string>>({});
+  const [postActionUrl, setPostActionUrl] = useState<string>('');
+  const [payInfoUrl, setPayInfoUrl] = useState<string | null>(null);
+  const [gatewayMsg, setGatewayMsg] = useState<string | null>(null);
   const [showTechDetails, setShowTechDetails] = useState(false);
   const [hasOpenedExternal, setHasOpenedExternal] = useState(false);
 
@@ -69,6 +70,8 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
       setStatus('pending');
       setIsVerifying(false);
       setHasOpenedExternal(false);
+      setPayInfoUrl(null);
+      setGatewayMsg(null);
 
       const data = buildWatchPayDepositPayload({
         merchantNo: merchantNo || '100666859',
@@ -80,11 +83,65 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
       });
 
       setCashierUrl(data.cashierUrl);
-      setStandardUrl(data.standardUrl);
       setSignPreview(data.signStringPreview);
       setPostParams(data.postParams);
+      setPostActionUrl(data.postActionUrl);
+
+      // Asynchronously call backend order placement with version=1.0 per documentation
+      // to resolve synchronous payInfo if supported by the merchant domain
+      fetch('/api/watchpay/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          merchantNo: merchantNo || '100666859',
+          payKey: payKey || '4abd8ad7b8a44bfcbeaa8ad8e30dae30',
+          amount,
+          payType: payType || '101',
+          domain: domain || 'https://api.watchpay.net',
+          orderNo: generatedOrderId,
+        }),
+      })
+        .then((res) => res.json())
+        .then((resp) => {
+          if (resp?.gatewayResponse?.payInfo) {
+            setPayInfoUrl(resp.gatewayResponse.payInfo);
+          }
+          if (resp?.gatewayResponse?.tradeMsg) {
+            setGatewayMsg(resp.gatewayResponse.tradeMsg);
+          }
+        })
+        .catch(() => {
+          // Fallback to direct HTML form POST if local server fetch is delayed
+        });
     }
   }, [isOpen, amount, merchantNo, payKey, payType, domain]);
+
+  // Asynchronous webhook polling: checks if WatchPay callback marked this order as paid
+  useEffect(() => {
+    if (!isOpen || !orderId || status === 'success') return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/watchpay/check-order?orderNo=${encodeURIComponent(orderId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.paid) {
+            clearInterval(interval);
+            setStatus('success');
+            sounds.playSuccess();
+            const utr = data.order?.orderNo || `WP${Date.now().toString().slice(-10)}`;
+            setTimeout(() => {
+              onSuccess(orderId, amount, utr, `WatchPay Webhook (pay_type: ${payType})`);
+              onClose();
+            }, 1200);
+          }
+        }
+      } catch {
+        // Continue polling silently
+      }
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [isOpen, orderId, status, amount, payType, onSuccess, onClose]);
 
   // Countdown timer
   useEffect(() => {
@@ -116,24 +173,31 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
     setHasOpenedExternal(true);
     setStatus('opened_page');
 
-    // Attempt to submit the official POST form first (standard payment gateway flow)
+    // 1. If synchronous JSON API returned direct payInfo, open it immediately
+    if (payInfoUrl) {
+      window.open(payInfoUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    // 2. Otherwise submit official POST request form per documentation:
+    // "You need to be redirected directly to the payment page; you don't need to fill in the version number. Use a POST request."
     if (formRef.current) {
       try {
         formRef.current.submit();
         return;
       } catch (err) {
-        console.warn('Form submit fallback to window.open', err);
+        console.warn('Form submit fallback', err);
       }
     }
 
-    // Fallback: Open GET URL in a new window/tab
+    // 3. Fallback to GET query URL
     if (typeof window !== 'undefined') {
-      window.open(standardUrl || cashierUrl, '_blank', 'noopener,noreferrer');
+      window.open(cashierUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
   const handleCopyUrl = () => {
-    navigator.clipboard.writeText(standardUrl || cashierUrl);
+    navigator.clipboard.writeText(payInfoUrl || cashierUrl);
     setCopiedUrl(true);
     sounds.playClick();
     setTimeout(() => setCopiedUrl(false), 2000);
@@ -146,7 +210,7 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
     setTimeout(() => setCopiedUpi(false), 2000);
   };
 
-  // Immediate Auto-credit handler
+  // Immediate Auto-credit handler (User click or auto settlement)
   const handleAutoCreditPayment = () => {
     setIsVerifying(true);
     setStatus('verifying');
@@ -165,17 +229,14 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
     }, 1500);
   };
 
-  const targetDomain = (domain || 'https://api.watchpay.net').replace(/\/+$/, '');
-  const formAction = `${targetDomain}${WATCHPAY_ENDPOINTS.payWeb}`;
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
       
-      {/* Hidden POST form for seamless gateway submission */}
+      {/* Hidden POST form for official WatchPay Gateway submission (/pay/web) */}
       <form
         ref={formRef}
         method="POST"
-        action={formAction}
+        action={postActionUrl}
         target="_blank"
         className="hidden"
       >
@@ -194,7 +255,7 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
           <div className="flex items-center space-x-2">
             <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-bold text-emerald-400">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>LIVE GATEWAY</span>
+              <span>OFFICIAL GATEWAY</span>
             </div>
             <button
               onClick={onClose}
@@ -249,22 +310,35 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center space-x-1.5">
                     <CreditCard className="w-4 h-4" />
-                    <span>WatchPay Cashier Gateway</span>
+                    <span>WatchPay Cashier (/pay/web)</span>
                   </span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                    signType=MD5
+                    POST application/x-www-form-urlencoded
                   </span>
                 </div>
 
                 <p className="text-xs text-slate-300">
-                  Click below to launch the official WatchPay checkout page with signed parameters.
+                  Click below to open the official WatchPay cashier checkout page with exact signed MD5 credentials:
                 </p>
+
+                {payInfoUrl && (
+                  <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center space-x-1.5">
+                    <Globe className="w-3.5 h-3.5" />
+                    <span className="truncate">Direct Paylink Ready: {payInfoUrl}</span>
+                  </div>
+                )}
+
+                {gatewayMsg && (
+                  <div className="px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700 text-slate-300 text-[11px]">
+                    Status: {gatewayMsg}
+                  </div>
+                )}
 
                 <div className="space-y-2 pt-1">
                   <button
                     type="button"
                     onClick={handleOpenPaymentPage}
-                    className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-extrabold text-sm shadow-xl shadow-emerald-600/30 flex items-center justify-center space-x-2 transition-all active:scale-98"
+                    className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-extrabold text-sm shadow-xl shadow-emerald-600/30 flex items-center justify-center space-x-2 transition-all active:scale-98 cursor-pointer"
                   >
                     <span>Open Official Payment Page</span>
                     <ExternalLink className="w-4 h-4" />
@@ -273,10 +347,10 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
                   <button
                     type="button"
                     onClick={handleCopyUrl}
-                    className="w-full py-2 px-3 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white text-xs font-mono font-medium flex items-center justify-center space-x-1.5 transition-colors border border-slate-700/60"
+                    className="w-full py-2 px-3 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white text-xs font-mono font-medium flex items-center justify-center space-x-1.5 transition-colors border border-slate-700/60 cursor-pointer"
                   >
                     {copiedUrl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedUrl ? 'Payment URL Copied!' : 'Copy Gateway Checkout URL (/pay/web)'}</span>
+                    <span>{copiedUrl ? 'Payment URL Copied!' : 'Copy Payment Gateway URL (/pay/web)'}</span>
                   </button>
                 </div>
 
@@ -293,20 +367,20 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-white flex items-center space-x-1.5">
                     <Zap className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Instant Auto-Credit Settlement</span>
+                    <span>Automatic Deposit Credit</span>
                   </span>
-                  <span className="text-[10px] text-emerald-400 font-bold">No Admin Approval Needed</span>
+                  <span className="text-[10px] text-emerald-400 font-bold">Auto Webhook Sync</span>
                 </div>
                 
                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Once you pay on the payment page, click below for instant webhook verification & immediate wallet balance credit:
+                  Once completed on the WatchPay page, the balance credits automatically via webhook. You can also click below for instant confirmation:
                 </p>
 
                 <button
                   type="button"
                   onClick={handleAutoCreditPayment}
                   disabled={isVerifying}
-                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white font-bold text-xs shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all active:scale-98 disabled:opacity-60"
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white font-bold text-xs shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all active:scale-98 disabled:opacity-60 cursor-pointer"
                 >
                   {isVerifying ? (
                     <>
@@ -325,8 +399,8 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
               {/* Direct UPI QR Code & App Links */}
               <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-300">Or Pay Directly via UPI QR Code:</span>
-                  <span className="text-[10px] font-mono text-emerald-400 font-bold">Channel: pay_type={payType}</span>
+                  <span className="text-xs font-bold text-slate-300">UPI QR Code & App Quick Launch:</span>
+                  <span className="text-[10px] font-mono text-emerald-400 font-bold">pay_type={payType}</span>
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -344,7 +418,7 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
                       <button
                         type="button"
                         onClick={handleCopyUpi}
-                        className="text-emerald-400 hover:text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 flex-shrink-0"
+                        className="text-emerald-400 hover:text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 flex-shrink-0 cursor-pointer"
                       >
                         {copiedUpi ? 'Copied' : 'Copy'}
                       </button>
@@ -361,7 +435,7 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
                           key={app.name}
                           type="button"
                           onClick={handleOpenPaymentPage}
-                          className="py-1.5 px-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[10px] font-bold text-center flex flex-col items-center justify-center transition-colors"
+                          className="py-1.5 px-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[10px] font-bold text-center flex flex-col items-center justify-center transition-colors cursor-pointer"
                         >
                           <Smartphone className={`w-3 h-3 ${app.color}`} />
                           <span className="text-slate-300 mt-0.5">{app.name}</span>
@@ -377,11 +451,11 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowTechDetails(!showTechDetails)}
-                  className="w-full px-3 py-2 text-left font-mono text-[11px] text-slate-400 hover:text-slate-200 flex items-center justify-between bg-slate-900/50"
+                  className="w-full px-3 py-2 text-left font-mono text-[11px] text-slate-400 hover:text-slate-200 flex items-center justify-between bg-slate-900/50 cursor-pointer"
                 >
                   <span className="flex items-center space-x-1.5">
                     <Lock className="w-3 h-3 text-emerald-400" />
-                    <span>WatchPay Signed Parameters (Diagnostic Specs)</span>
+                    <span>WatchPay Official API Parameters (Documentation Compliance)</span>
                   </span>
                   {showTechDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 </button>
@@ -389,27 +463,35 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
                 {showTechDetails && (
                   <div className="p-3 space-y-2 border-t border-slate-800 font-mono text-[10px] text-slate-400">
                     <div className="flex justify-between">
-                      <span>Merchant ID (mchId):</span>
+                      <span>Merchant ID (mch_id):</span>
                       <span className="text-emerald-400 font-bold">{merchantNo || '100666859'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Order Number (merOrderId):</span>
+                      <span>Order Number (mch_order_no):</span>
                       <span className="text-white">{orderId}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Signature Algorithm (signType):</span>
-                      <span className="text-emerald-400 font-bold">MD5</span>
+                      <span>Transaction Amount (trade_amount):</span>
+                      <span className="text-emerald-400 font-bold">{postParams.trade_amount}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Channel Code (payType):</span>
+                      <span>Order Date (order_date):</span>
+                      <span className="text-white">{postParams.order_date}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Payment Type (pay_type):</span>
                       <span className="text-white">{payType}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Callback IP Whitelist:</span>
+                      <span>Signature Algorithm (sign_type):</span>
+                      <span className="text-emerald-400 font-bold">MD5 (Excluded from signature)</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Callback Whitelist IP:</span>
                       <span className="text-amber-400 font-bold">{WATCHPAY_CALLBACK_IP}</span>
                     </div>
                     <div className="pt-1.5 border-t border-slate-800">
-                      <span className="text-slate-500 block mb-1">Pre-hash Signature String:</span>
+                      <span className="text-slate-500 block mb-1">Pre-hash Signature String (Alphabetical):</span>
                       <div className="bg-slate-900 p-2 rounded border border-slate-800 text-[9px] text-slate-300 break-all leading-tight">
                         {signPreview}
                       </div>
@@ -427,7 +509,7 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
               {/* Security Footnote */}
               <div className="pt-1 flex items-center justify-center space-x-1.5 text-[10px] text-slate-500">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Protected by WatchPay 256-Bit Financial Encryption • Webhook IP: {WATCHPAY_CALLBACK_IP}</span>
+                <span>WatchPay Gateway v1.0 • Webhook IP: {WATCHPAY_CALLBACK_IP}</span>
               </div>
             </>
           )}

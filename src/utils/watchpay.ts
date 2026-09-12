@@ -24,7 +24,11 @@ export interface WatchPayCountryPreset {
 }
 
 export const WATCHPAY_CALLBACK_IP = '18.141.88.123';
-export const WATCHPAY_DEFAULT_DOMAIN = 'https://api.watchpay.net';
+export const WATCHPAY_DEFAULT_DOMAIN = 'https://interface.sskking.com';
+export const WATCHPAY_ALT_DOMAINS = [
+  'https://interface.sskking.com',
+  'https://api.watchpay.net',
+];
 
 export const WATCHPAY_ENDPOINTS = {
   payWeb: '/pay/web', // 支付下单 (Pay / Deposit Web Cashier)
@@ -338,40 +342,78 @@ export const WATCHPAY_PRESETS: Record<string, WatchPayCountryPreset> = {
 
 import { md5 } from './md5';
 
+// Format date to WatchPay format: yyyy-MM-dd HH:mm:ss
+export function formatWatchPayDate(date: Date = new Date()): string {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const yyyy = date.getFullYear();
+  const MM = pad(date.getMonth() + 1);
+  const dd = pad(date.getDate());
+  const HH = pad(date.getHours());
+  const mm = pad(date.getMinutes());
+  const ss = pad(date.getSeconds());
+  return `${yyyy}-${MM}-${dd} ${HH}:${mm}:${ss}`;
+}
+
 // Real RFC 1321 MD5 calculation for WatchPay Gateway
+// Strictly per official WatchPay specification:
+// 1. Exclude 'sign', 'sign_type', and 'signType'
+// 2. Exclude empty or undefined parameters
+// 3. Sort keys alphabetically
+// 4. Concatenate key1=val1&key2=val2...&key=KEY
 export function calculateWatchPaySign(params: Record<string, string | number>, key: string): string {
-  // 1. Filter out null, undefined, empty strings and "sign" itself
   const keys = Object.keys(params)
-    .filter(k => k !== 'sign' && params[k] !== undefined && params[k] !== null && String(params[k]).trim() !== '')
+    .filter(k => 
+      k !== 'sign' && 
+      k !== 'sign_type' && 
+      k !== 'signType' && 
+      params[k] !== undefined && 
+      params[k] !== null && 
+      String(params[k]).trim() !== ''
+    )
     .sort();
 
-  // 2. Build parameter string: param1=val1&param2=val2...&key=KEY
   const paramString = keys.map(k => `${k}=${params[k]}`).join('&') + `&key=${key}`;
-
-  // 3. Compute real RFC 1321 MD5 hash
   return md5(paramString);
 }
 
-// Build official WatchPay Deposit (/pay/web) request object
+// Official WatchPay Deposit (/pay/web) interface definitions
 export interface WatchPayDepositRequest {
-  mchId: string;
-  merchant_no: string;
-  merOrderId: string;
-  order_no: string;
-  orderAmount: string;
-  amount: string;
-  payType: string;
-  pay_type: string;
-  signType: string;
-  sign_type: string;
-  notifyUrl: string;
-  notify_url: string;
-  returnUrl: string;
-  return_url: string;
-  goodsName: string;
+  // Official snake_case parameters per documentation
+  mch_id: string;
+  mch_order_no: string;
+  trade_amount: string;
+  order_date: string;
   goods_name: string;
+  pay_type: string;
+  notify_url: string;
+  page_url?: string;
+  version?: string;
+  bank_code?: string;
+  mch_return_msg?: string;
+  payer_phone?: string;
+  sign_type: string;
   sign: string;
-  [key: string]: string;
+
+  // Compatibility aliases
+  mchId?: string;
+  merOrderId?: string;
+  orderAmount?: string;
+  [key: string]: string | undefined;
+}
+
+export interface WatchPaySyncResponse {
+  respCode: 'SUCCESS' | 'FAIL';
+  tradeMsg: string;
+  tradeResult?: string; // '1' = success
+  payInfo?: string; // Direct payment cashier link
+  mchId?: string;
+  mchOrderNo?: string;
+  orderNo?: string;
+  oriAmount?: string;
+  tradeAmount?: string;
+  orderDate?: string;
+  signType?: string;
+  sign?: string;
 }
 
 export function buildWatchPayDepositPayload(options: {
@@ -382,91 +424,178 @@ export function buildWatchPayDepositPayload(options: {
   domain?: string;
   orderNo?: string;
   notifyUrl?: string;
-  returnUrl?: string;
+  pageUrl?: string;
+  goodsName?: string;
+  withVersion?: boolean; // Set true for JSON mode (version=1.0)
 }): { 
   payload: WatchPayDepositRequest; 
   cashierUrl: string; 
   signStringPreview: string;
   postParams: Record<string, string>;
-  standardUrl: string;
+  jsonApiParams: Record<string, string>;
+  postActionUrl: string;
 } {
-  const baseDomain = (options.domain || 'https://api.watchpay.net').replace(/\/+$/, '');
+  const baseDomain = (options.domain || WATCHPAY_DEFAULT_DOMAIN).replace(/\/+$/, '');
   const orderNo = options.orderNo || `WP${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
-  const amountStr = options.amount.toFixed(2);
-  const notifyUrl = options.notifyUrl || (typeof window !== 'undefined' ? `${window.location.origin}/api/watchpay/callback` : 'https://api.watchpay.net/callback');
-  const returnUrl = options.returnUrl || (typeof window !== 'undefined' ? `${window.location.origin}/` : 'https://api.watchpay.net/return');
+  const amountStr = options.amount % 1 === 0 ? options.amount.toString() : options.amount.toFixed(2);
+  const orderDate = formatWatchPayDate();
+  const goodsName = options.goodsName || `Recharge ${amountStr}`;
 
-  // The primary signing parameters required by the gateway:
-  // Gateway requires: mchId, merOrderId, orderAmount, payType, signType, notifyUrl, returnUrl
-  const signParams: Record<string, string | number> = {
-    goodsName: `Recharge ${amountStr}`,
-    mchId: options.merchantNo,
-    merOrderId: orderNo,
-    notifyUrl: notifyUrl,
-    orderAmount: amountStr,
-    payType: options.payType,
-    returnUrl: returnUrl,
-    signType: 'MD5',
-  };
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://api.watchpay.net';
+  const notifyUrl = options.notifyUrl || `${currentOrigin}/api/watchpay/callback`;
+  const pageUrl = options.pageUrl || `${currentOrigin}/`;
 
-  const sign = calculateWatchPaySign(signParams, options.payKey);
-
-  // Full payload containing both camelCase and snake_case alias parameters for 100% gateway compatibility
-  const payload: WatchPayDepositRequest = {
-    mchId: options.merchantNo,
-    merchant_no: options.merchantNo,
-    merOrderId: orderNo,
-    order_no: orderNo,
-    orderAmount: amountStr,
-    amount: amountStr,
-    payType: options.payType,
-    pay_type: options.payType,
-    signType: 'MD5',
-    sign_type: 'MD5',
-    notifyUrl: notifyUrl,
+  // 1. Direct POST Redirection parameters (no version field, per doc:
+  // "You need to be redirected directly to the payment page; you don't need to fill in the version number. Use a POST request.")
+  const directSignParams: Record<string, string | number> = {
+    goods_name: goodsName,
+    mch_id: options.merchantNo,
+    mch_order_no: orderNo,
     notify_url: notifyUrl,
-    returnUrl: returnUrl,
-    return_url: returnUrl,
-    goodsName: `Recharge ${amountStr}`,
-    goods_name: `Recharge ${amountStr}`,
-    sign,
+    order_date: orderDate,
+    page_url: pageUrl,
+    pay_type: options.payType,
+    trade_amount: amountStr,
   };
 
-  const sortedKeys = Object.keys(signParams).sort();
-  const signStringPreview = sortedKeys.map(k => `${k}=${signParams[k]}`).join('&') + `&key=${options.payKey}`;
-  
-  // Standard Cashier URL with mchId, merOrderId, orderAmount, payType, signType, sign
-  const queryParams = new URLSearchParams({
-    mchId: options.merchantNo,
-    merchant_no: options.merchantNo,
-    merOrderId: orderNo,
-    order_no: orderNo,
-    orderAmount: amountStr,
-    amount: amountStr,
-    payType: options.payType,
-    pay_type: options.payType,
-    signType: 'MD5',
-    sign_type: 'MD5',
-    notifyUrl: notifyUrl,
-    returnUrl: returnUrl,
-    goodsName: `Recharge ${amountStr}`,
-    sign: sign,
-  });
+  const directSign = calculateWatchPaySign(directSignParams, options.payKey);
 
-  const cashierUrl = `${baseDomain}/pay/web?${queryParams.toString()}`;
-  const standardUrl = `${baseDomain}/pay/web?mchId=${options.merchantNo}&merOrderId=${orderNo}&orderAmount=${amountStr}&payType=${options.payType}&signType=MD5&notifyUrl=${encodeURIComponent(notifyUrl)}&returnUrl=${encodeURIComponent(returnUrl)}&sign=${sign}`;
+  const sortedDirectKeys = Object.keys(directSignParams).sort();
+  const signStringPreview = sortedDirectKeys.map(k => `${k}=${directSignParams[k]}`).join('&') + `&key=${options.payKey}`;
 
   const postParams: Record<string, string> = {
-    mchId: options.merchantNo,
-    merOrderId: orderNo,
-    orderAmount: amountStr,
-    payType: options.payType,
-    signType: 'MD5',
-    notifyUrl: notifyUrl,
-    returnUrl: returnUrl,
-    goodsName: `Recharge ${amountStr}`,
+    goods_name: goodsName,
+    mch_id: options.merchantNo,
+    mch_order_no: orderNo,
+    notify_url: notifyUrl,
+    order_date: orderDate,
+    page_url: pageUrl,
+    pay_type: options.payType,
+    trade_amount: amountStr,
+    sign_type: 'MD5',
+    sign: directSign,
+  };
+
+  // 2. JSON API parameters (with version=1.0, per doc:
+  // "If you need to return JSON data, be sure to fill in version=1.0 and use curl to make the request.")
+  const jsonSignParams: Record<string, string | number> = {
+    ...directSignParams,
+    version: '1.0',
+  };
+  const jsonSign = calculateWatchPaySign(jsonSignParams, options.payKey);
+
+  const jsonApiParams: Record<string, string> = {
+    goods_name: goodsName,
+    mch_id: options.merchantNo,
+    mch_order_no: orderNo,
+    notify_url: notifyUrl,
+    order_date: orderDate,
+    page_url: pageUrl,
+    pay_type: options.payType,
+    trade_amount: amountStr,
+    version: '1.0',
+    sign_type: 'MD5',
+    sign: jsonSign,
+  };
+
+  // Query URL fallback
+  const queryParams = new URLSearchParams(postParams);
+  const cashierUrl = `${baseDomain}/pay/web?${queryParams.toString()}`;
+  const postActionUrl = `${baseDomain}/pay/web`;
+
+  const payload: WatchPayDepositRequest = {
+    ...postParams,
+    goods_name: goodsName,
+    mch_id: options.merchantNo,
+    mch_order_no: orderNo,
+    notify_url: notifyUrl,
+    order_date: orderDate,
+    page_url: pageUrl,
+    pay_type: options.payType,
+    trade_amount: amountStr,
+    sign_type: 'MD5',
+    sign: directSign,
+  };
+
+  return { 
+    payload, 
+    cashierUrl, 
+    signStringPreview, 
+    postParams, 
+    jsonApiParams,
+    postActionUrl 
+  };
+}
+
+// Payment on Behalf / Payout / Transfer (/pay/transfer)
+export interface WatchPayTransferRequest {
+  mch_id: string;
+  mch_transferId: string;
+  transfer_amount: string;
+  apply_date: string;
+  bank_code: string;
+  receive_name: string;
+  receive_account: string;
+  remark?: string; // IFSC code for India
+  back_url?: string;
+  sign_type: string;
+  sign: string;
+}
+
+export function buildWatchPayTransferPayload(options: {
+  merchantNo: string;
+  transferKey: string;
+  amount: number;
+  transferId?: string;
+  bankCode?: string;
+  receiveName: string;
+  receiveAccount: string;
+  ifscCode?: string;
+  backUrl?: string;
+}): {
+  payload: WatchPayTransferRequest;
+  signString: string;
+  sign: string;
+} {
+  const transferId = options.transferId || `TF${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
+  const applyDate = formatWatchPayDate();
+  const amountStr = Math.round(options.amount).toString(); // Integers in yuan/rupees per doc
+
+  const signParams: Record<string, string | number> = {
+    apply_date: applyDate,
+    bank_code: options.bankCode || 'UPI',
+    mch_id: options.merchantNo,
+    mch_transferId: transferId,
+    receive_account: options.receiveAccount,
+    receive_name: options.receiveName,
+    transfer_amount: amountStr,
+  };
+
+  if (options.ifscCode) {
+    signParams.remark = options.ifscCode;
+  }
+  if (options.backUrl) {
+    signParams.back_url = options.backUrl;
+  }
+
+  const sign = calculateWatchPaySign(signParams, options.transferKey);
+
+  const sortedKeys = Object.keys(signParams).sort();
+  const signString = sortedKeys.map(k => `${k}=${signParams[k]}`).join('&') + `&key=${options.transferKey}`;
+
+  const payload: WatchPayTransferRequest = {
+    apply_date: applyDate,
+    bank_code: options.bankCode || 'UPI',
+    mch_id: options.merchantNo,
+    mch_transferId: transferId,
+    receive_account: options.receiveAccount,
+    receive_name: options.receiveName,
+    transfer_amount: amountStr,
+    remark: options.ifscCode,
+    back_url: options.backUrl,
+    sign_type: 'MD5',
     sign: sign,
   };
 
-  return { payload, cashierUrl, signStringPreview, postParams, standardUrl };
+  return { payload, signString, sign };
 }
