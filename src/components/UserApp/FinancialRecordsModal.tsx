@@ -25,7 +25,6 @@ import {
   Users,
   Gift,
   ChevronDown,
-  Sparkles,
   SlidersHorizontal,
   Calendar,
   Table as TableIcon,
@@ -35,7 +34,8 @@ import {
   Percent,
   CalendarRange,
   ArrowRight,
-  Printer
+  Printer,
+  Settings
 } from 'lucide-react';
 import { Transaction, RecordCategory } from '../../types';
 import { sounds } from '../../utils/audio';
@@ -66,10 +66,13 @@ export const FinancialRecordsModal: React.FC<Props> = ({
 
   const isLight = theme === 'light';
 
-  // Active Category Tab
+  // Active Category Tab: 'recharge' | 'income' | 'withdrawal' | 'all'
   const [activeTab, setActiveTab] = useState<RecordCategory>(defaultTab);
+
+  // Presentation Mode: 'simple' (clean, intuitive cards with auto-credit badges) | 'advance' (audit passbook, table, date range, filters)
+  const [recordsMode, setRecordsMode] = useState<'simple' | 'advance'>('simple');
   
-  // View mode: 'stream' (cards) | 'passbook' (bank table) | 'analytics' (cashflow insights)
+  // View mode (for Advance mode): 'stream' (cards) | 'passbook' (bank table) | 'analytics' (cashflow insights)
   const [viewMode, setViewMode] = useState<'stream' | 'passbook' | 'analytics'>('stream');
 
   // Filters
@@ -314,14 +317,14 @@ export const FinancialRecordsModal: React.FC<Props> = ({
     setTimeout(() => {
       setIsRefreshing(false);
       sounds.playSuccess();
-      showNotification('Ledger synchronized with banking clearing nodes.', 'success');
+      showNotification('Ledger synchronized with banking clearing servers.', 'success');
     }, 500);
   };
 
   const handleExportCsv = () => {
     sounds.playSuccess();
     const rows = [
-      ['Transaction ID', 'Order Ref', 'Type', 'Channel / Gateway', 'Gross Amount (INR)', 'Fee / TDS', 'Net Disbursed', 'Running Bal (INR)', 'Status', 'UTR / RRN', 'Date & Time', 'Particulars'],
+      ['Transaction ID', 'Order Ref', 'Type', 'Channel / Gateway', 'Gross Amount (INR)', 'Fee / TDS', 'Net Disbursed', 'Running Balance (INR)', 'Status', 'UTR / RRN', 'Date & Time', 'Particulars'],
       ...filteredTransactions.map(t => [
         t.id,
         t.orderId || 'N/A',
@@ -367,84 +370,122 @@ export const FinancialRecordsModal: React.FC<Props> = ({
         {/* Top Header */}
         <div className={`${
           isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/90 border-slate-800'
-        } border-b px-3.5 py-2 flex items-center justify-between flex-shrink-0`}>
-          <div className="flex items-center space-x-2">
+        } border-b px-3.5 py-2 flex items-center justify-between flex-shrink-0 gap-2`}>
+          <div className="flex items-center space-x-2 min-w-0">
             <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
               isLight ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
             }`}>
               <FileText className="w-4 h-4" />
             </div>
-            <div>
-              <div className="flex items-center space-x-1.5">
-                <h2 className="text-xs sm:text-sm font-bold flex items-center space-x-1.5 font-['Outfit']">
-                  <span>Advance Financial Passbook</span>
+            <div className="min-w-0 truncate">
+              <div className="flex items-center space-x-1.5 flex-wrap">
+                <h2 className="text-xs sm:text-sm font-bold flex items-center space-x-1.5 font-['Outfit'] truncate">
+                  <span>{recordsMode === 'simple' ? 'Financial Records (सरल)' : 'Advance Ledger (एडवांस)'}</span>
                 </h2>
                 <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full font-mono ${
-                  isLight ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  recordsMode === 'simple' 
+                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                    : isLight ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                 }`}>
-                  NPCI 24×7
+                  {recordsMode === 'simple' ? 'Simple View' : 'NPCI 24×7'}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-500 hidden sm:block">
-                Audited transaction ledger & verified slips
+              <p className="text-[10px] text-slate-500 hidden sm:block truncate">
+                {recordsMode === 'simple' 
+                  ? 'Separate Recharge, Income & Withdrawal Records' 
+                  : 'Audited transaction ledger & verified slips'}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-1">
-            {/* View Mode Switcher */}
-            <div className={`flex rounded-lg p-0.5 border ${
-              isLight ? 'bg-slate-200/70 border-slate-300' : 'bg-slate-800 border-slate-700'
+          <div className="flex items-center space-x-1.5 flex-shrink-0">
+            {/* Simple vs Advance Mode Toggle */}
+            <div className={`flex rounded-xl p-0.5 border ${
+              isLight ? 'bg-slate-200/80 border-slate-300' : 'bg-slate-800 border-slate-700'
             }`}>
               <button
-                onClick={() => { setViewMode('stream'); sounds.playClick(); }}
-                title="Cards Stream"
-                className={`p-1 rounded-md transition-all ${
-                  viewMode === 'stream' 
-                    ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white' 
-                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
+                onClick={() => { setRecordsMode('simple'); sounds.playClick(); }}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center space-x-1 transition-all cursor-pointer ${
+                  recordsMode === 'simple'
+                    ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
                 }`}
+                title="Simple Mode (सरल रिकॉर्ड)"
               >
-                <LayoutList className="w-3.5 h-3.5" />
+                <Zap className="w-3 h-3" />
+                <span>Simple</span>
               </button>
               <button
-                onClick={() => { setViewMode('passbook'); sounds.playClick(); }}
-                title="Bank Table Passbook"
-                className={`p-1 rounded-md transition-all ${
-                  viewMode === 'passbook' 
-                    ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white' 
-                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
+                onClick={() => { setRecordsMode('advance'); sounds.playClick(); }}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center space-x-1 transition-all cursor-pointer ${
+                  recordsMode === 'advance'
+                    ? isLight ? 'bg-white text-purple-600 shadow-sm' : 'bg-purple-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
                 }`}
+                title="Advance Mode (विस्तृत रिकॉर्ड)"
               >
-                <TableIcon className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => { setViewMode('analytics'); sounds.playClick(); }}
-                title="Cashflow Analytics"
-                className={`p-1 rounded-md transition-all ${
-                  viewMode === 'analytics' 
-                    ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white' 
-                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
-                }`}
-              >
-                <BarChart3 className="w-3.5 h-3.5" />
+                <Settings className="w-3 h-3" />
+                <span>Advance</span>
               </button>
             </div>
 
-            <button
-              onClick={() => setIsStatementOpen(true)}
-              title="Official Statement"
-              className={`p-1.5 rounded-lg border text-xs font-bold transition-colors ${
-                isLight ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
-              }`}
-            >
-              <Printer className="w-3.5 h-3.5 text-blue-500" />
-            </button>
+            {/* Advance view controllers (only in Advance mode) */}
+            {recordsMode === 'advance' && (
+              <>
+                <div className={`hidden sm:flex rounded-lg p-0.5 border ${
+                  isLight ? 'bg-slate-200/70 border-slate-300' : 'bg-slate-800 border-slate-700'
+                }`}>
+                  <button
+                    onClick={() => { setViewMode('stream'); sounds.playClick(); }}
+                    title="Cards Stream"
+                    className={`p-1 rounded-md transition-all ${
+                      viewMode === 'stream' 
+                        ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white' 
+                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
+                    }`}
+                  >
+                    <LayoutList className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => { setViewMode('passbook'); sounds.playClick(); }}
+                    title="Bank Table Passbook"
+                    className={`p-1 rounded-md transition-all ${
+                      viewMode === 'passbook' 
+                        ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white' 
+                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
+                    }`}
+                  >
+                    <TableIcon className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => { setViewMode('analytics'); sounds.playClick(); }}
+                    title="Cashflow Analytics"
+                    className={`p-1 rounded-md transition-all ${
+                      viewMode === 'analytics' 
+                        ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white' 
+                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
+                    }`}
+                  >
+                    <BarChart3 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => setIsStatementOpen(true)}
+                  title="Official Statement"
+                  className={`p-1.5 rounded-lg border text-xs font-bold transition-colors ${
+                    isLight ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                  }`}
+                >
+                  <Printer className="w-3.5 h-3.5 text-blue-500" />
+                </button>
+              </>
+            )}
 
             <button
               onClick={handleRefresh}
               title="Refresh ledger"
-              className={`p-1.5 rounded-lg border transition-colors ${
+              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
                 isLight ? 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
               }`}
             >
@@ -453,7 +494,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
 
             <button
               onClick={onClose}
-              className={`p-1.5 rounded-lg transition-colors ${
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                 isLight ? 'hover:bg-slate-100 text-slate-400 hover:text-slate-800' : 'hover:bg-slate-800 text-slate-400 hover:text-white'
               }`}
             >
@@ -462,20 +503,20 @@ export const FinancialRecordsModal: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* 4 Segmented Category Tab Selector Bar */}
+        {/* 4 Dedicated Category Tabs: Recharge, Income, Withdrawal, All Passbook */}
         <div className={`${
           isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-900/60 border-slate-800'
         } border-b px-3 py-1.5 flex-shrink-0 overflow-x-auto scrollbar-none`}>
           <div className="flex space-x-1.5 min-w-max">
             
-            {/* Recharge Tab */}
+            {/* 1. Recharge Record Tab */}
             <button
               onClick={() => {
                 setActiveTab('recharge');
                 setCurrentPage(1);
                 sounds.playClick();
               }}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
                 activeTab === 'recharge'
                   ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/30'
                   : isLight 
@@ -484,7 +525,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
               }`}
             >
               <CreditCard className="w-3.5 h-3.5" />
-              <span>Recharge Record</span>
+              <span>Recharge Record (रिचार्ज)</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
                 activeTab === 'recharge' ? 'bg-white/20 text-white' : isLight ? 'bg-slate-200 text-slate-700' : 'bg-slate-800 text-slate-400'
               }`}>
@@ -492,14 +533,14 @@ export const FinancialRecordsModal: React.FC<Props> = ({
               </span>
             </button>
 
-            {/* Income Tab */}
+            {/* 2. Income Record Tab */}
             <button
               onClick={() => {
                 setActiveTab('income');
                 setCurrentPage(1);
                 sounds.playClick();
               }}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
                 activeTab === 'income'
                   ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
                   : isLight 
@@ -508,22 +549,26 @@ export const FinancialRecordsModal: React.FC<Props> = ({
               }`}
             >
               <TrendingUp className="w-3.5 h-3.5" />
-              <span>Income Record</span>
-              {metrics.todayIncome > 0 && (
+              <span>Income Record (इनकम)</span>
+              {metrics.todayIncome > 0 ? (
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-400 text-slate-950 font-black">
                   +₹{metrics.todayIncome}
+                </span>
+              ) : (
+                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
+                  Auto
                 </span>
               )}
             </button>
 
-            {/* Withdrawal Tab */}
+            {/* 3. Withdrawal Record Tab */}
             <button
               onClick={() => {
                 setActiveTab('withdrawal');
                 setCurrentPage(1);
                 sounds.playClick();
               }}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
                 activeTab === 'withdrawal'
                   ? 'bg-amber-500 text-slate-950 shadow-sm shadow-amber-500/30'
                   : isLight 
@@ -532,22 +577,22 @@ export const FinancialRecordsModal: React.FC<Props> = ({
               }`}
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Withdrawal Record</span>
+              <span>Withdrawal Record (निकासी)</span>
               {metrics.pendingWithdrawals > 0 && (
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-600 font-mono">
-                  1 In Process
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-600 font-mono font-bold">
+                  Pending
                 </span>
               )}
             </button>
 
-            {/* All Passbook Tab */}
+            {/* 4. All Passbook Tab */}
             <button
               onClick={() => {
                 setActiveTab('all');
                 setCurrentPage(1);
                 sounds.playClick();
               }}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
                 activeTab === 'all'
                   ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
                   : isLight 
@@ -1050,7 +1095,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                               {txn.runningBalance !== undefined && (
                                 <>
                                   <span>•</span>
-                                  <span className="text-blue-600 dark:text-blue-400 font-bold">Bal: ₹{txn.runningBalance.toLocaleString()}</span>
+                                  <span className="text-blue-600 dark:text-blue-400 font-bold">Balance: ₹{txn.runningBalance.toLocaleString()}</span>
                                 </>
                               )}
                             </div>
@@ -1161,7 +1206,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                               <Clock className="w-3 h-3 animate-spin" />
                               <span>{isDeposit ? 'Bank UTR Clearing In-Progress' : 'IMPS Switch Clearance In-Progress'}</span>
                             </span>
-                            <span className="text-[10px] text-slate-500 font-mono">ETA: 5-15 Mins</span>
+                            <span className="text-[10px] text-slate-500 font-mono">ETA: 5-15 Minutes</span>
                           </div>
 
                           {/* Progress Stepper Bar */}
@@ -1173,7 +1218,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                               2. Audited
                             </div>
                             <div className="bg-amber-500/20 text-amber-700 dark:text-amber-300 py-1 rounded border border-amber-500/50 animate-pulse">
-                              3. Banking Node
+                              3. Banking Gateway
                             </div>
                             <div className={`${isLight ? 'bg-white text-slate-400 border-slate-200' : 'bg-slate-900 text-slate-500 border-slate-800'} py-1 rounded border`}>
                               4. Credited
@@ -1253,7 +1298,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
         } border-t px-4 py-2.5 flex items-center justify-between text-[11px] text-slate-500 flex-shrink-0`}>
           <div className="flex items-center space-x-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-            <span>256-Bit SSL Encrypted Financial Node</span>
+            <span>256-Bit SSL Encrypted Financial Gateway</span>
           </div>
           <div className="flex items-center space-x-3">
             <button

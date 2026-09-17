@@ -10,7 +10,8 @@ import {
   FraudAlert,
   RecordCategory,
   ThemeMode,
-  IncomeCelebrationData
+  IncomeCelebrationData,
+  ActivePendingDeposit
 } from '../types';
 import { 
   INITIAL_PLANS, 
@@ -39,7 +40,7 @@ interface AppContextType {
   viewMode: 'user' | 'admin';
   adminAuthenticated: boolean;
   activeUserTab: 'home' | 'spin' | 'treasure' | 'team' | 'profile';
-  activeAdminTab: 'dashboard' | 'deposits' | 'withdrawals' | 'users' | 'plans' | 'security' | 'marketing' | 'settings' | 'audit';
+  activeAdminTab: 'dashboard' | 'deposits' | 'withdrawals' | 'users' | 'plans' | 'security' | 'marketing' | 'settings' | 'audit' | 'affiliate';
   notification: { message: string; type: 'success' | 'error' | 'info' } | null;
   recordsModalOpen: boolean;
   recordsDefaultTab: RecordCategory;
@@ -50,7 +51,7 @@ interface AppContextType {
   setViewMode: (mode: 'user' | 'admin') => void;
   setAdminAuthenticated: (auth: boolean) => void;
   setActiveUserTab: (tab: 'home' | 'spin' | 'treasure' | 'team' | 'profile') => void;
-  setActiveAdminTab: (tab: 'dashboard' | 'deposits' | 'withdrawals' | 'users' | 'plans' | 'security' | 'marketing' | 'settings' | 'audit') => void;
+  setActiveAdminTab: (tab: 'dashboard' | 'deposits' | 'withdrawals' | 'users' | 'plans' | 'security' | 'marketing' | 'settings' | 'audit' | 'affiliate') => void;
   showNotification: (message: string, type?: 'success' | 'error' | 'info') => void;
   openRecordsModal: (tab?: RecordCategory) => void;
   closeRecordsModal: () => void;
@@ -70,9 +71,15 @@ interface AppContextType {
   claimDailyAgencySalary: (amount: number, rankName: string) => { success: boolean; error?: string };
   dailyCheckin: () => { success: boolean; reward: number };
   executeSpin: (reward: number) => { success: boolean; error?: string };
+  buySpinsWithBalance: (count?: number) => { success: boolean; error?: string };
   updateBankDetails: (details: NonNullable<UserAccount['bankDetails']>) => void;
+  updateProfile: (updates: Partial<UserAccount>) => void;
   switchUserAccount: (userId: string) => void;
   redeemGiftCode: (code: string) => { success: boolean; amount?: number; error?: string };
+  reinvestBalanceIntoPlan: (planId: string) => { success: boolean; error?: string };
+  liquidateInvestment: (investmentId: string) => { success: boolean; refundedAmount?: number; error?: string };
+  autoHarvestEnabled: boolean;
+  toggleAutoHarvest: () => void;
 
   // Admin Actions
   approveDeposit: (transactionId: string) => void;
@@ -99,7 +106,15 @@ interface AppContextType {
   exportDataToCsv: (dataType: 'transactions' | 'users' | 'audit') => void;
   saveSettings: (newSettings: Partial<SystemSettings>) => void;
   updateSettings: (newSettings: Partial<SystemSettings>) => void;
+  triggerGlobalDividendRun: () => { processedCount: number; totalDistributed: number };
+  triggerGlobalCommissionRebateRun: () => { processedCount: number; totalDistributed: number };
+  distributePromoterAirdrop: (bonusAmount: number, minReferrals?: number) => { rewardedCount: number; totalAirdrop: number };
   resetToDefaults: () => void;
+
+  // Real-Time Deposit Polling Flow
+  activePendingDeposit: ActivePendingDeposit | null;
+  registerPendingDeposit: (orderNo: string, amount: number, channelName?: string) => void;
+  clearPendingDeposit: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -169,16 +184,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [settings, setSettings] = useState<SystemSettings>(() => {
     const saved = loadFromStorage<SystemSettings>(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
-    // Ensure the new live WatchPay credentials take effect immediately if unset or using old test defaults
-    if (!saved.watchpayMerchantNo || saved.watchpayMerchantNo === '222887002') {
-      return {
-        ...saved,
+    let updated = { ...saved };
+    // Ensure live WatchPay credentials take effect
+    if (!updated.watchpayMerchantNo || updated.watchpayMerchantNo === '222887002' || updated.watchpayDomain !== 'https://api.watchglb.com') {
+      updated = {
+        ...updated,
         watchpayEnabled: true,
-        watchpayMerchantNo: INITIAL_SETTINGS.watchpayMerchantNo,
-        watchpayPayKey: INITIAL_SETTINGS.watchpayPayKey,
+        watchpayDomain: 'https://api.watchglb.com',
+        watchpayMerchantNo: '100666859',
+        watchpayPayKey: '4abd8ad7b8a44bfcbeaa8ad8e30dae30',
+        watchpayPayType: '101',
       };
     }
-    return saved;
+    // Ensure live Sunpays Gateway credentials take effect
+    if (!updated.sunpaysMerchantId || updated.sunpaysMerchantId !== '353548') {
+      updated = {
+        ...updated,
+        sunpaysEnabled: true,
+        sunpaysMerchantId: '353548',
+        sunpaysPayinApiKey: 'b6ff773b7d9d08bde80ef13ad8bd924cd3c9341aef4330f341272ee81b2ab6ad',
+        sunpaysPayinApiSecret: 'cd40986af39469dfca69eea8f3e5307f4b1293d9d9ec863f7c67d66e92a4ec2b',
+        sunpaysPayoutApiKey: '354f21cf1f27cbadcf136fbd64e7fd1da6a4d95e1385ff704fa79b8060bae7a4',
+        sunpaysPayoutApiSecret: 'ed7350044c65779df3b9222756d765db20860ed843d6e9fb74722d693c8ef8a7',
+        sunpaysBaseUrl: 'https://ttpay.business',
+        sunpaysDefaultMethod: 'upi',
+        activeGateway: updated.activeGateway || 'both',
+      };
+    }
+    return updated;
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => 
@@ -196,7 +229,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [viewMode, setViewMode] = useState<'user' | 'admin'>('user');
   const [adminAuthenticated, setAdminAuthenticated] = useState<boolean>(true); // pre-authenticated for seamless reviewer evaluation
   const [activeUserTab, setActiveUserTab] = useState<'home' | 'spin' | 'treasure' | 'team' | 'profile'>('home');
-  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'deposits' | 'withdrawals' | 'users' | 'plans' | 'security' | 'marketing' | 'settings' | 'audit'>('dashboard');
+  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'deposits' | 'withdrawals' | 'users' | 'plans' | 'security' | 'marketing' | 'settings' | 'audit' | 'affiliate'>('dashboard');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   // Financial Records Modal State (High-Concurrency Scalable Passbook)
@@ -204,36 +237,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [recordsDefaultTab, setRecordsDefaultTab] = useState<RecordCategory>('recharge');
 
   // Dark & Light Mode state (Defaults to Light/White Theme)
-  const [theme, setTheme] = useState<ThemeMode>(() => {
-    try {
-      const saved = localStorage.getItem('apexgrowth_theme');
-      if (saved === 'light' || saved === 'dark') return saved;
-      return 'light';
-    } catch {
-      return 'light';
-    }
-  });
+  // Dedicated Light Theme (Dark mode option removed per user request)
+  const [theme] = useState<ThemeMode>('light');
 
   const toggleTheme = useCallback(() => {
-    setTheme(prev => {
-      const next = prev === 'dark' ? 'light' : 'dark';
-      try {
-        localStorage.setItem('apexgrowth_theme', next);
-      } catch {}
-      sounds.playClick();
-      return next;
-    });
+    // No-op retained for interface compatibility
   }, []);
 
   useEffect(() => {
-    if (theme === 'light') {
-      document.documentElement.classList.add('light');
-      document.documentElement.classList.remove('dark');
-    } else {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
-    }
-  }, [theme]);
+    try {
+      localStorage.removeItem('apexgrowth_theme');
+    } catch {}
+    document.documentElement.classList.add('light');
+    document.documentElement.classList.remove('dark');
+  }, []);
 
   const openRecordsModal = useCallback((tab: RecordCategory = 'recharge') => {
     setRecordsDefaultTab(tab);
@@ -254,6 +271,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const closeIncomeCelebration = useCallback(() => {
     setCelebrationData(null);
+  }, []);
+
+  // Active Pending Deposit Real-Time Polling State
+  const [activePendingDeposit, setActivePendingDeposit] = useState<ActivePendingDeposit | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('apexcraft_pending_deposit');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const registerPendingDeposit = useCallback((orderNo: string, amount: number, channelName = 'WatchPay Native (pay_type: 101)') => {
+    const item: ActivePendingDeposit = {
+      orderNo,
+      amount,
+      channelName,
+      createdAt: Date.now(),
+    };
+    setActivePendingDeposit(item);
+    try {
+      sessionStorage.setItem('apexcraft_pending_deposit', JSON.stringify(item));
+    } catch {}
+  }, []);
+
+  const clearPendingDeposit = useCallback(() => {
+    setActivePendingDeposit(null);
+    try {
+      sessionStorage.removeItem('apexcraft_pending_deposit');
+    } catch {}
   }, []);
 
   // Sync to local storage
@@ -359,14 +406,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     setTransactions(prev => [newTxn, ...prev]);
-    showNotification(`Deposit request of ₹${amount.toLocaleString()} submitted! Admin will verify and credit within 5-10 mins.`, 'success');
+    showNotification(`Deposit request of ₹${amount.toLocaleString()} submitted! Admin will verify and credit within 5-10 Minutes.`, 'success');
     return true;
   };
 
   const completeWatchPayDeposit = (orderId: string, amount: number, utrNumber: string, channelName: string) => {
     const callbackServerIp = settings.watchpayCallbackIp || '18.141.88.123';
+    const effectiveChannel = channelName || 'WatchPay Native (pay_type: 101)';
     
-    // Create immediate completed transaction record
+    // Create immediate completed transaction record with WatchPay method
     const newTxn: Transaction = {
       id: `TXN-WP-${Date.now().toString().slice(-6)}`,
       orderId: orderId,
@@ -377,12 +425,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       amount,
       status: 'completed',
       method: 'WatchPay',
-      channel: channelName,
+      channel: effectiveChannel,
       utrNumber: utrNumber.trim(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      description: `WatchPay Instant Auto-Credit (+₹${amount.toLocaleString()}) via ${channelName}`,
-      approvedBy: `WatchPay Node (IP: ${callbackServerIp})`,
+      description: `WatchPay Instant Auto-Credit (+₹${amount.toLocaleString()}) via ${effectiveChannel}`,
+      approvedBy: `WatchPay Gateway (api.watchglb.com | IP: ${callbackServerIp})`,
     };
 
     setTransactions(prev => [newTxn, ...prev]);
@@ -402,21 +450,188 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addAuditLog(
       'WATCHPAY_DEPOSIT_SETTLED',
       orderId,
-      `Instant recharge of ₹${amount.toLocaleString()} verified and credited from WatchPay callback node ${callbackServerIp} (Merchant: ${settings.watchpayMerchantNo || '222887002'}, Channel: ${channelName})`
+      `Instant recharge of ₹${amount.toLocaleString()} verified and credited automatically from WatchPay gateway server ${callbackServerIp} (Merchant: ${settings.watchpayMerchantNo || '100666859'}, Channel: ${effectiveChannel})`
     );
 
     sounds.playCash();
-    showNotification(`⚡ WatchPay Payment Verified! ₹${amount.toLocaleString()} credited to your wallet.`, 'success');
+    showNotification(`⚡ WatchPay Deposit Credited! ₹${amount.toLocaleString()} automatically added to your wallet.`, 'success');
 
     triggerIncomeCelebration({
       title: 'WatchPay Recharge Successful!',
       amount: amount,
       source: 'bonus',
-      sourceTitle: `WatchPay Instant Cashier (${channelName})`,
+      sourceTitle: `WatchPay Cashier (${effectiveChannel})`,
       newBalance: currentUser.balance + amount,
       txId: newTxn.id,
     });
+
+    clearPendingDeposit();
   };
+
+  // Real-time polling mechanism in user deposit flow: calls '/api/watchpay/check-order' to detect when payment successfully moves to 'completed' status
+  useEffect(() => {
+    if (!activePendingDeposit) return;
+
+    const { orderNo, amount, channelName, createdAt } = activePendingDeposit;
+
+    // Auto-expire after 20 minutes
+    if (Date.now() - createdAt > 20 * 60 * 1000) {
+      clearPendingDeposit();
+      return;
+    }
+
+    let isSubscribed = true;
+
+    const checkOrderStatus = async () => {
+      try {
+        const res = await fetch(`/api/watchpay/check-order?orderNo=${encodeURIComponent(orderNo)}`);
+        if (!res.ok || !isSubscribed) return;
+
+        const data = await res.json();
+        if (!isSubscribed) return;
+
+        // Detect when payment successfully moves to 'completed' status
+        if (data.status === 'completed' || data.paid) {
+          clearPendingDeposit();
+          const utr = data.order?.utr || data.utr || data.order?.orderNo || `WP${Date.now().toString().slice(-10)}`;
+          completeWatchPayDeposit(orderNo, amount, utr, channelName);
+        }
+      } catch (err) {
+        // Silently retry next poll cycle
+      }
+    };
+
+    checkOrderStatus();
+    const pollTimer = setInterval(checkOrderStatus, 2500);
+
+    return () => {
+      isSubscribed = false;
+      clearInterval(pollTimer);
+    };
+  }, [activePendingDeposit, clearPendingDeposit, completeWatchPayDeposit]);
+
+  // ==========================================
+  // AUTOMATIC DAILY & FLASH INCOME CREDIT ENGINE
+  // User Requirement: "income automatic credit hona chahiYe"
+  // Automatically detects when daily income or flash plan return is due and credits
+  // it directly into the user's wallet balance without requiring manual claims.
+  // ==========================================
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== 'user') return;
+
+    const processAutoIncome = () => {
+      const now = Date.now();
+      const todayDateStr = new Date().toDateString();
+
+      setUserInvestments(prevInvestments => {
+        let totalCredited = 0;
+        let netProfitDelta = 0;
+        const newTxns: Transaction[] = [];
+
+        const updated = prevInvestments.map(item => {
+          if (item.status !== 'active') return item;
+
+          const isFlash = item.isFlash || item.cycleUnit === 'minute' || item.cycleUnit === 'hour';
+
+          // Case A: Flash Plan maturity reached (minutes/hours)
+          if (isFlash && now >= new Date(item.endDate).getTime()) {
+            const returnPayout = item.totalReturn;
+            totalCredited += returnPayout;
+            netProfitDelta += (returnPayout - item.investedAmount);
+
+            newTxns.push({
+              id: `TXN-INC-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`,
+              userId: currentUser.id,
+              userName: currentUser.name,
+              userPhone: currentUser.phone,
+              type: 'dividend',
+              amount: returnPayout,
+              status: 'completed',
+              createdAt: new Date().toISOString(),
+              description: `⚡ Automatic Return Credit: ${item.planName} (Flash Complete)`,
+            });
+
+            return {
+              ...item,
+              daysPassed: 1,
+              earnedSoFar: item.totalReturn,
+              lastClaimDate: new Date().toISOString(),
+              canClaimToday: false,
+              status: 'completed' as const,
+            };
+          }
+
+          // Case B: Standard Daily Plan (auto-credits daily dividend)
+          if (!isFlash) {
+            const lastClaimDay = item.lastClaimDate ? new Date(item.lastClaimDate).toDateString() : null;
+            const isDueToday = item.canClaimToday || (lastClaimDay !== null && lastClaimDay !== todayDateStr && item.daysPassed < item.cycleDays);
+
+            if (isDueToday && item.daysPassed < item.cycleDays) {
+              const divAmount = item.dailyIncome;
+              totalCredited += divAmount;
+              netProfitDelta += divAmount;
+              const newDays = item.daysPassed + 1;
+              const isCompleted = newDays >= item.cycleDays;
+
+              newTxns.push({
+                id: `TXN-INC-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`,
+                userId: currentUser.id,
+                userName: currentUser.name,
+                userPhone: currentUser.phone,
+                type: 'dividend',
+                amount: divAmount,
+                status: 'completed',
+                createdAt: new Date().toISOString(),
+                description: `⚡ Automatic Daily Income: ${item.planName} (Day ${newDays}/${item.cycleDays})`,
+              });
+
+              return {
+                ...item,
+                daysPassed: newDays,
+                earnedSoFar: item.earnedSoFar + divAmount,
+                lastClaimDate: new Date().toISOString(),
+                canClaimToday: false,
+                status: isCompleted ? ('completed' as const) : ('active' as const),
+              };
+            }
+          }
+
+          return item;
+        });
+
+        // If income was credited, update balance, transactions, and notify
+        if (totalCredited > 0) {
+          setAllUsers(users => users.map(u => {
+            if (u.id === currentUser.id) {
+              return {
+                ...u,
+                balance: u.balance + totalCredited,
+                totalEarned: u.totalEarned + netProfitDelta,
+              };
+            }
+            return u;
+          }));
+
+          setTransactions(txs => [...newTxns, ...txs]);
+          sounds.playCoin();
+          showNotification(
+            `⚡ Daily Income Auto-Credited: ₹${totalCredited.toLocaleString()} added to your wallet!`,
+            'success'
+          );
+        }
+
+        return updated;
+      });
+    };
+
+    // Run immediately on mount or user change
+    processAutoIncome();
+
+    // Check periodically every 10 seconds
+    const autoIncomeTimer = setInterval(processAutoIncome, 10000);
+
+    return () => clearInterval(autoIncomeTimer);
+  }, [currentUser?.id]);
 
   const submitWithdrawalRequest = (amount: number, bankDetails: UserAccount['bankDetails']): { success: boolean; error?: string } => {
     if (settings.globalFreezeWithdrawals) {
@@ -485,6 +700,146 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return { success: true };
   };
 
+  const distributeReferralCommission = (buyer: UserAccount, amount: number, contextLabel: string) => {
+    if (!buyer.referredBy) return;
+
+    // Find Level 1 upline user
+    const l1User = allUsers.find(u => u.referralCode === buyer.referredBy);
+    if (!l1User) return;
+
+    // Find Level 2 upline user
+    const l2User = l1User.referredBy ? allUsers.find(u => u.referralCode === l1User.referredBy) : undefined;
+
+    // Find Level 3 upline user
+    const l3User = l2User?.referredBy ? allUsers.find(u => u.referralCode === l2User.referredBy) : undefined;
+
+    const multiplier = settings.commissionMultiplier || 1.0;
+    const tierBonusActive = settings.promoterTierBonusEnabled ?? true;
+
+    // L1 Calculation
+    let l1Pct = settings.referralL1Percent || 10;
+    if (tierBonusActive && (l1User.referralsCount || 0) >= 15) l1Pct += 2; // Elite Agent bonus
+    if (tierBonusActive && (l1User.referralsCount || 0) >= 30) l1Pct += 3; // Master Ambassador bonus
+    const l1Amount = Math.max(1, Math.round((amount * (l1Pct / 100)) * multiplier));
+
+    // L2 Calculation
+    let l2Pct = settings.referralL2Percent || 5;
+    if (tierBonusActive && l2User && (l2User.referralsCount || 0) >= 20) l2Pct += 1;
+    const l2Amount = l2User ? Math.max(1, Math.round((amount * (l2Pct / 100)) * multiplier)) : 0;
+
+    // L3 Calculation
+    const l3Pct = settings.referralL3Percent || 2;
+    const l3Amount = l3User ? Math.max(1, Math.round((amount * (l3Pct / 100)) * multiplier)) : 0;
+
+    const uplineUpdates: Record<string, { balanceAdd: number; commAdd: number; claimableAdd: number }> = {};
+    const autoCredit = settings.autoDistributeCommissions !== false;
+
+    uplineUpdates[l1User.id] = { 
+      balanceAdd: autoCredit ? l1Amount : 0, 
+      commAdd: l1Amount, 
+      claimableAdd: autoCredit ? 0 : l1Amount 
+    };
+    if (l2User && l2Amount > 0) {
+      uplineUpdates[l2User.id] = { 
+        balanceAdd: autoCredit ? l2Amount : 0, 
+        commAdd: l2Amount, 
+        claimableAdd: autoCredit ? 0 : l2Amount 
+      };
+    }
+    if (l3User && l3Amount > 0) {
+      uplineUpdates[l3User.id] = { 
+        balanceAdd: autoCredit ? l3Amount : 0, 
+        commAdd: l3Amount, 
+        claimableAdd: autoCredit ? 0 : l3Amount 
+      };
+    }
+
+    setAllUsers(prev => prev.map(u => {
+      const up = uplineUpdates[u.id];
+      if (!up) return u;
+      return {
+        ...u,
+        balance: u.balance + up.balanceAdd,
+        totalEarned: u.totalEarned + up.balanceAdd,
+        teamCommission: (u.teamCommission || 0) + up.commAdd,
+        claimableCommission: (u.claimableCommission || 0) + up.claimableAdd,
+      };
+    }));
+
+    const newTxns: Transaction[] = [];
+    const nowIso = new Date().toISOString();
+
+    newTxns.push({
+      id: `TXN-REF-L1-${Date.now().toString().slice(-5)}`,
+      orderId: `COMM-L1-${Date.now().toString().slice(-4)}`,
+      userId: l1User.id,
+      userName: l1User.name,
+      userPhone: l1User.phone,
+      type: 'referral',
+      subType: 'referral',
+      amount: l1Amount,
+      status: 'completed',
+      createdAt: nowIso,
+      description: `⚡ L1 Direct Commission from ${buyer.name} (${contextLabel}, ₹${amount.toLocaleString()} @ ${l1Pct}%${multiplier > 1 ? ` x${multiplier}` : ''})`,
+      proofHash: Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
+    });
+
+    if (l2User && l2Amount > 0) {
+      newTxns.push({
+        id: `TXN-REF-L2-${Date.now().toString().slice(-5)}`,
+        orderId: `COMM-L2-${Date.now().toString().slice(-4)}`,
+        userId: l2User.id,
+        userName: l2User.name,
+        userPhone: l2User.phone,
+        type: 'referral',
+        subType: 'referral',
+        amount: l2Amount,
+        status: 'completed',
+        createdAt: nowIso,
+        description: `⚡ L2 Sub-Team Commission via ${l1User.name} from ${buyer.name} (${contextLabel} @ ${l2Pct}%)`,
+        proofHash: Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
+      });
+    }
+
+    if (l3User && l3Amount > 0) {
+      newTxns.push({
+        id: `TXN-REF-L3-${Date.now().toString().slice(-5)}`,
+        orderId: `COMM-L3-${Date.now().toString().slice(-4)}`,
+        userId: l3User.id,
+        userName: l3User.name,
+        userPhone: l3User.phone,
+        type: 'referral',
+        subType: 'referral',
+        amount: l3Amount,
+        status: 'completed',
+        createdAt: nowIso,
+        description: `⚡ L3 Network Commission from ${buyer.name} (${contextLabel} @ ${l3Pct}%)`,
+        proofHash: Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
+      });
+    }
+
+    setTransactions(prev => [...newTxns, ...prev]);
+
+    if (l1User.id === currentUser.id) {
+      sounds.playCash();
+      showNotification(`🎉 Team L1 Commission: +₹${l1Amount.toLocaleString()} earned from ${buyer.name}'s ${contextLabel}!`, 'success');
+      triggerIncomeCelebration({
+        title: 'Team L1 Rebate Earned!',
+        amount: l1Amount,
+        source: 'referral',
+        sourceTitle: `Direct Subordinate ${buyer.name} (${contextLabel})`,
+        newBalance: currentUser.balance + (autoCredit ? l1Amount : 0),
+        txId: newTxns[0].id,
+      });
+    } else if (l2User && l2User.id === currentUser.id) {
+      sounds.playCash();
+      showNotification(`🎉 Team L2 Sub-Tier Commission: +₹${l2Amount.toLocaleString()} earned!`, 'success');
+    } else if (l3User && l3User.id === currentUser.id) {
+      sounds.playCash();
+      showNotification(`🎉 Team L3 Network Commission: +₹${l3Amount.toLocaleString()} earned!`, 'success');
+    }
+  };
+
   const purchasePlan = (planId: string): { success: boolean; error?: string } => {
     const plan = plans.find(p => p.id === planId);
     if (!plan) return { success: false, error: 'Plan not found' };
@@ -530,9 +885,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const endDate = new Date(startDate.getTime() + durationMs);
     const durationLabel = 
       plan.cycleUnit === 'minute' 
-        ? `${plan.cycleDuration || 1} Min`
+        ? `${plan.cycleDuration || 1} ${(plan.cycleDuration || 1) === 1 ? 'Minute' : 'Minutes'}`
         : plan.cycleUnit === 'hour'
-        ? `${plan.cycleDuration || 1} Hour`
+        ? `${plan.cycleDuration || 1} ${(plan.cycleDuration || 1) === 1 ? 'Hour' : 'Hours'}`
         : `${plan.cycleDays} Days`;
 
     const newInv: UserInvestment = {
@@ -552,7 +907,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
       status: 'active',
-      canClaimToday: !isFlash, // Daily plans can claim day 1; Flash plans unlock when timer reaches 0
+      canClaimToday: !isFlash,
       isFlash,
     };
 
@@ -576,6 +931,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Increment plan purchases
     setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, totalPurchasedCount: p.totalPurchasedCount + 1 } : p));
 
+    // Automatically distribute referral commission to uplines!
+    distributeReferralCommission(currentUser, plan.price, `Plan: ${plan.name}`);
+
     const congratsMsg = isFlash
       ? `⚡ Successfully activated ${plan.name}! Matures in ${durationLabel}. Expected return ₹${plan.totalRevenue.toLocaleString()}! +1 Free Lucky Spin added!`
       : `Congratulations! Successfully activated ${plan.name}. Earn ₹${plan.dailyIncome.toLocaleString()} daily! +1 Free Lucky Spin added!`;
@@ -585,10 +943,160 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return { success: true };
   };
 
+  const reinvestBalanceIntoPlan = (planId: string): { success: boolean; error?: string } => {
+    const plan = plans.find(p => p.id === planId);
+    if (!plan) return { success: false, error: 'Plan not found' };
+    if (!plan.isActive) return { success: false, error: 'Plan is currently inactive' };
+
+    if (currentUser.balance < plan.price) {
+      return { success: false, error: `Insufficient balance (Required: ₹${plan.price.toLocaleString()}, Available: ₹${currentUser.balance.toLocaleString()})` };
+    }
+
+    // Compound bonus: +2% extra daily income and total revenue!
+    const compoundBonusMultiplier = 1.02;
+    const boostedDailyIncome = Math.round(plan.dailyIncome * compoundBonusMultiplier);
+    const boostedTotalReturn = Math.round(plan.totalRevenue * compoundBonusMultiplier);
+
+    // Deduct balance and add spin
+    setAllUsers(prev => prev.map(u => {
+      if (u.id === currentUser.id) {
+        return {
+          ...u,
+          balance: u.balance - plan.price,
+          spinChances: u.spinChances + 1,
+        };
+      }
+      return u;
+    }));
+
+    const isFlash = plan.category === 'flash' || plan.cycleUnit === 'minute' || plan.cycleUnit === 'hour';
+    let durationMs = (plan.cycleDays || 1) * 24 * 60 * 60 * 1000;
+    if (plan.cycleUnit === 'minute') {
+      durationMs = (plan.cycleDuration || 1) * 60 * 1000;
+    } else if (plan.cycleUnit === 'hour') {
+      durationMs = (plan.cycleDuration || 1) * 60 * 60 * 1000;
+    }
+
+    const startDate = new Date();
+    const endDate = new Date(startDate.getTime() + durationMs);
+
+    const newInv: UserInvestment = {
+      id: `inv-cmp-${Date.now().toString().slice(-6)}`,
+      userId: currentUser.id,
+      planId: plan.id,
+      planName: `${plan.name} (+2% Compound Loyalty Boost)`,
+      investedAmount: plan.price,
+      dailyIncome: boostedDailyIncome,
+      totalReturn: boostedTotalReturn,
+      cycleDays: plan.cycleDays,
+      cycleDuration: plan.cycleDuration,
+      cycleUnit: plan.cycleUnit || 'day',
+      daysPassed: 0,
+      earnedSoFar: 0,
+      lastClaimDate: '',
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      status: 'active',
+      canClaimToday: !isFlash,
+      isFlash,
+    };
+
+    setUserInvestments(prev => [newInv, ...prev]);
+
+    const newTxn: Transaction = {
+      id: `TXN-REINV-${Date.now().toString().slice(-6)}`,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userPhone: currentUser.phone,
+      type: 'investment',
+      amount: plan.price,
+      status: 'completed',
+      createdAt: new Date().toISOString(),
+      description: `🔄 Auto-Compound Re-investment: ${plan.name} (+2% Loyalty Bonus Profit)`,
+    };
+    setTransactions(prev => [newTxn, ...prev]);
+
+    distributeReferralCommission(currentUser, plan.price, `Re-invest: ${plan.name}`);
+
+    sounds.playSuccess();
+    showNotification(`🔄 Re-invested ₹${plan.price.toLocaleString()} with +2% bonus profit applied!`, 'success');
+    return { success: true };
+  };
+
+  const [autoHarvestEnabled, setAutoHarvestEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('apexcraft_auto_harvest') === 'true';
+  });
+
+  const toggleAutoHarvest = () => {
+    setAutoHarvestEnabled(prev => {
+      const next = !prev;
+      localStorage.setItem('apexcraft_auto_harvest', String(next));
+      if (next) {
+        sounds.playSuccess();
+        showNotification('🤖 Auto-Collect Active: Matured profits and daily dividends will auto-credit!', 'success');
+      } else {
+        sounds.playClick();
+        showNotification('Auto-Collect deactivated.', 'info');
+      }
+      return next;
+    });
+  };
+
+  const liquidateInvestment = (investmentId: string): { success: boolean; refundedAmount?: number; error?: string } => {
+    const inv = userInvestments.find(i => i.id === investmentId);
+    if (!inv) return { success: false, error: 'Asset position not found' };
+    if (inv.status !== 'active') return { success: false, error: 'Asset is already completed or liquidated' };
+
+    // 15% emergency exit fee, 85% returned
+    const liquidationFee = Math.round(inv.investedAmount * 0.15);
+    const refundedAmount = inv.investedAmount - liquidationFee;
+
+    setUserInvestments(prev => prev.map(item => {
+      if (item.id === investmentId) {
+        return {
+          ...item,
+          status: 'completed' as const,
+          lastClaimDate: new Date().toISOString(),
+          canClaimToday: false,
+        };
+      }
+      return item;
+    }));
+
+    setAllUsers(prev => prev.map(u => {
+      if (u.id === currentUser.id) {
+        return {
+          ...u,
+          balance: u.balance + refundedAmount,
+        };
+      }
+      return u;
+    }));
+
+    const newTxn: Transaction = {
+      id: `TXN-LIQ-${Date.now().toString().slice(-6)}`,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userPhone: currentUser.phone,
+      type: 'bonus',
+      subType: 'voucher',
+      amount: refundedAmount,
+      status: 'completed',
+      createdAt: new Date().toISOString(),
+      description: `⚡ Emergency Capital Liquidation: ${inv.planName} (Refund: ₹${refundedAmount.toLocaleString()}, Exit Fee: ₹${liquidationFee.toLocaleString()})`,
+    };
+    setTransactions(prev => [newTxn, ...prev]);
+
+    sounds.playCash();
+    showNotification(`⚡ Capital Liquidation executed! Refunded ₹${refundedAmount.toLocaleString()} to your balance.`, 'success');
+    return { success: true, refundedAmount };
+  };
+
   const claimDailyDividend = (investmentId: string): { success: boolean; error?: string } => {
     const inv = userInvestments.find(i => i.id === investmentId);
     if (!inv) return { success: false, error: 'Investment not found' };
 
+    const multiplier = settings.incomeMultiplier || 1.0;
     const isFlash = inv.isFlash || inv.cycleUnit === 'minute' || inv.cycleUnit === 'hour';
     const now = Date.now();
     const endMs = new Date(inv.endDate).getTime();
@@ -603,7 +1111,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return { success: false, error: msg };
       }
 
-      const payout = inv.totalReturn;
+      const payout = Math.round(inv.totalReturn * multiplier);
       const netProfit = payout - inv.investedAmount;
 
       setUserInvestments(prev => prev.map(item => {
@@ -641,7 +1149,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         amount: payout,
         status: 'completed',
         createdAt: new Date().toISOString(),
-        description: `⚡ Flash Profit Settled: ${inv.planName} (Full Payout: ₹${payout.toLocaleString()})`,
+        description: `⚡ Flash Profit Settled: ${inv.planName} (Full Payout: ₹${payout.toLocaleString()}${multiplier > 1 ? ` @ ${multiplier}x Boost` : ''})`,
       };
       setTransactions(prev => [newTxn, ...prev]);
 
@@ -665,7 +1173,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return { success: false, error: 'Already claimed today' };
     }
 
-    const newEarned = inv.earnedSoFar + inv.dailyIncome;
+    const dailyInc = Math.round(inv.dailyIncome * multiplier);
+    const newEarned = inv.earnedSoFar + dailyInc;
     const newDays = inv.daysPassed + 1;
     const isCompleted = newDays >= inv.cycleDays;
 
@@ -688,8 +1197,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (u.id === currentUser.id) {
         return {
           ...u,
-          balance: u.balance + inv.dailyIncome,
-          totalEarned: u.totalEarned + inv.dailyIncome,
+          balance: u.balance + dailyInc,
+          totalEarned: u.totalEarned + dailyInc,
         };
       }
       return u;
@@ -702,29 +1211,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       userName: currentUser.name,
       userPhone: currentUser.phone,
       type: 'dividend',
-      amount: inv.dailyIncome,
+      amount: dailyInc,
       status: 'completed',
       createdAt: new Date().toISOString(),
-      description: `Daily Dividend Claim: ${inv.planName} (Day ${newDays}/${inv.cycleDays})`,
+      description: `Daily Dividend Claim: ${inv.planName} (Day ${newDays}/${inv.cycleDays}${multiplier > 1 ? ` @ ${multiplier}x Boost` : ''})`,
     };
     setTransactions(prev => [newTxn, ...prev]);
 
     sounds.playCoin();
-    showNotification(`Daily Dividend of ₹${inv.dailyIncome.toLocaleString()} credited to your wallet!`, 'success');
+    showNotification(`Daily Dividend of ₹${dailyInc.toLocaleString()} credited to your wallet!`, 'success');
     triggerIncomeCelebration({
       title: 'Daily Dividend Credited!',
-      amount: inv.dailyIncome,
+      amount: dailyInc,
       source: 'dividend',
-      sourceTitle: `Production Yield: ${inv.planName}`,
+      sourceTitle: `Daily Profit: ${inv.planName}`,
       planName: inv.planName,
       dayProgress: `Day ${newDays}/${inv.cycleDays}`,
-      newBalance: currentUser.balance + inv.dailyIncome,
+      newBalance: currentUser.balance + dailyInc,
       txId: newTxn.id,
     });
     return { success: true };
   };
 
   const claimAllDividends = (): { success: boolean; count: number; total: number } => {
+    const multiplier = settings.incomeMultiplier || 1.0;
     const now = Date.now();
     const claimable = userInvestments.filter(i => {
       if (i.status !== 'active') return false;
@@ -747,24 +1257,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (item.status === 'active') {
         const isFlash = item.isFlash || item.cycleUnit === 'minute' || item.cycleUnit === 'hour';
         if (isFlash && now >= new Date(item.endDate).getTime()) {
-          totalAmount += item.totalReturn;
-          netEarnedDelta += (item.totalReturn - item.investedAmount);
+          const payout = Math.round(item.totalReturn * multiplier);
+          totalAmount += payout;
+          netEarnedDelta += (payout - item.investedAmount);
           return {
             ...item,
             daysPassed: 1,
-            earnedSoFar: item.totalReturn,
+            earnedSoFar: payout,
             lastClaimDate: new Date().toISOString(),
             canClaimToday: false,
             status: 'completed' as const,
           };
         } else if (!isFlash && item.canClaimToday) {
-          totalAmount += item.dailyIncome;
-          netEarnedDelta += item.dailyIncome;
+          const dailyInc = Math.round(item.dailyIncome * multiplier);
+          totalAmount += dailyInc;
+          netEarnedDelta += dailyInc;
           const newDays = item.daysPassed + 1;
           return {
             ...item,
             daysPassed: newDays,
-            earnedSoFar: item.earnedSoFar + item.dailyIncome,
+            earnedSoFar: item.earnedSoFar + dailyInc,
             lastClaimDate: new Date().toISOString(),
             canClaimToday: false,
             status: newDays >= item.cycleDays ? ('completed' as const) : ('active' as const),
@@ -797,7 +1309,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       amount: totalAmount,
       status: 'completed',
       createdAt: new Date().toISOString(),
-      description: `Bulk Claim: ${claimable.length} investments payout settled`,
+      description: `Bulk Claim: ${claimable.length} investments payout settled${multiplier > 1 ? ` (${multiplier}x Profit Boost)` : ''}`,
     };
     setTransactions(prev => [newTxn, ...prev]);
 
@@ -1043,6 +1555,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return { success: true };
   };
 
+  const buySpinsWithBalance = (count: number = 1): { success: boolean; error?: string } => {
+    const costPerSpin = 15;
+    const totalCost = count * costPerSpin;
+
+    if (currentUser.balance < totalCost) {
+      showNotification(`Insufficient wallet balance! You need ₹${totalCost} for ${count} Lucky Spin(s).`, 'error');
+      sounds.playError();
+      return { success: false, error: 'Insufficient balance' };
+    }
+
+    setAllUsers(prev => prev.map(u => {
+      if (u.id === currentUser.id) {
+        return {
+          ...u,
+          balance: u.balance - totalCost,
+          spinChances: u.spinChances + count,
+        };
+      }
+      return u;
+    }));
+
+    const newTxn: Transaction = {
+      id: `TXN-SPINBUY-${Date.now().toString().slice(-6)}`,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userPhone: currentUser.phone,
+      type: 'bonus',
+      amount: totalCost,
+      status: 'completed',
+      createdAt: new Date().toISOString(),
+      description: `Exchanged ₹${totalCost} for ${count} Lucky Fortune Spin(s)`,
+    };
+    setTransactions(prev => [newTxn, ...prev]);
+
+    sounds.playCoin();
+    showNotification(`Successfully purchased ${count} Lucky Spin(s) for ₹${totalCost}!`, 'success');
+    return { success: true };
+  };
+
   const updateBankDetails = (details: NonNullable<UserAccount['bankDetails']>) => {
     setAllUsers(prev => prev.map(u => {
       if (u.id === currentUser.id) {
@@ -1051,6 +1602,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return u;
     }));
     showNotification('Bank & UPI details successfully bound for secure withdrawals!', 'success');
+  };
+
+  const updateProfile = (updates: Partial<UserAccount>) => {
+    setAllUsers(prev => prev.map(u => {
+      if (u.id === currentUser.id) {
+        return { ...u, ...updates };
+      }
+      return u;
+    }));
+    showNotification('Profile updated successfully!', 'success');
   };
 
   const switchUserAccount = (userId: string) => {
@@ -1599,6 +2160,160 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     showNotification(`Exported ${filename} successfully!`, 'success');
   };
 
+  const triggerGlobalDividendRun = (): { processedCount: number; totalDistributed: number } => {
+    const profitMultiplier = settings.incomeMultiplier || 1.0;
+    let processedCount = 0;
+    let totalDistributed = 0;
+    const now = Date.now();
+
+    const userAdditions: Record<string, number> = {};
+
+    setUserInvestments(prev => prev.map(inv => {
+      if (inv.status !== 'active') return inv;
+      const isFlash = inv.isFlash || inv.cycleUnit === 'minute' || inv.cycleUnit === 'hour';
+
+      if (isFlash) {
+        if (now >= new Date(inv.endDate).getTime()) {
+          const payout = Math.round(inv.totalReturn * profitMultiplier);
+          userAdditions[inv.userId] = (userAdditions[inv.userId] || 0) + payout;
+          processedCount++;
+          totalDistributed += payout;
+          return {
+            ...inv,
+            daysPassed: 1,
+            earnedSoFar: payout,
+            lastClaimDate: new Date().toISOString(),
+            canClaimToday: false,
+            status: 'completed' as const,
+          };
+        }
+      } else {
+        const payout = Math.round(inv.dailyIncome * profitMultiplier);
+        userAdditions[inv.userId] = (userAdditions[inv.userId] || 0) + payout;
+        processedCount++;
+        totalDistributed += payout;
+        const newDays = inv.daysPassed + 1;
+        return {
+          ...inv,
+          daysPassed: newDays,
+          earnedSoFar: inv.earnedSoFar + payout,
+          lastClaimDate: new Date().toISOString(),
+          canClaimToday: false,
+          status: newDays >= inv.cycleDays ? ('completed' as const) : ('active' as const),
+        };
+      }
+      return inv;
+    }));
+
+    if (processedCount > 0) {
+      setAllUsers(prev => prev.map(u => {
+        const add = userAdditions[u.id];
+        if (!add) return u;
+        return {
+          ...u,
+          balance: u.balance + add,
+          totalEarned: u.totalEarned + add,
+        };
+      }));
+
+      addAuditLog(
+        'GLOBAL_DIVIDEND_RUN',
+        'SYSTEM',
+        `Automated global dividend engine credited ₹${totalDistributed.toLocaleString()} across ${processedCount} active equipment assets (Profit Multiplier: ${profitMultiplier}x)`,
+        'info'
+      );
+      sounds.playCash();
+      showNotification(`⚡ Force Dividend Cycle Executed! Disbursed ₹${totalDistributed.toLocaleString()} to ${processedCount} active assets.`, 'success');
+    } else {
+      showNotification('No active pending assets ready for dividend settlement right now.', 'info');
+    }
+
+    return { processedCount, totalDistributed };
+  };
+
+  const triggerGlobalCommissionRebateRun = (): { processedCount: number; totalDistributed: number } => {
+    let processedCount = 0;
+    let totalDistributed = 0;
+
+    setAllUsers(prev => prev.map(u => {
+      const claimable = u.claimableCommission || 0;
+      if (claimable > 0) {
+        processedCount++;
+        totalDistributed += claimable;
+        return {
+          ...u,
+          balance: u.balance + claimable,
+          totalEarned: u.totalEarned + claimable,
+          teamCommission: (u.teamCommission || 0) + claimable,
+          claimableCommission: 0,
+        };
+      }
+      return u;
+    }));
+
+    if (processedCount > 0) {
+      addAuditLog(
+        'GLOBAL_REBATE_FLUSH',
+        'SYSTEM',
+        `Flushed and settled ₹${totalDistributed.toLocaleString()} in pending team rebates for ${processedCount} promoters.`,
+        'info'
+      );
+      sounds.playCash();
+      showNotification(`💰 Flushed ₹${totalDistributed.toLocaleString()} team rebates for ${processedCount} promoters!`, 'success');
+    } else {
+      showNotification('All agency rebates are already settled and up-to-date.', 'info');
+    }
+
+    return { processedCount, totalDistributed };
+  };
+
+  const distributePromoterAirdrop = (bonusAmount: number, minReferrals = 3): { rewardedCount: number; totalAirdrop: number } => {
+    let rewardedCount = 0;
+    const newTxns: Transaction[] = [];
+
+    setAllUsers(prev => prev.map(u => {
+      if ((u.referralsCount || 0) >= minReferrals && !u.isFrozen) {
+        rewardedCount++;
+        newTxns.push({
+          id: `TXN-AIRDROP-${Date.now().toString().slice(-5)}-${u.id}`,
+          orderId: `AIRDROP-${Date.now().toString().slice(-4)}`,
+          userId: u.id,
+          userName: u.name,
+          userPhone: u.phone,
+          type: 'bonus',
+          subType: 'voucher',
+          amount: bonusAmount,
+          status: 'completed',
+          createdAt: new Date().toISOString(),
+          description: `🎁 Promoter Leadership Festival Cash Airdrop (+₹${bonusAmount.toLocaleString()})`,
+          proofHash: Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
+        });
+        return {
+          ...u,
+          balance: u.balance + bonusAmount,
+          totalEarned: u.totalEarned + bonusAmount,
+        };
+      }
+      return u;
+    }));
+
+    if (newTxns.length > 0) {
+      setTransactions(prev => [...newTxns, ...prev]);
+    }
+
+    const totalAirdrop = rewardedCount * bonusAmount;
+    addAuditLog(
+      'PROMOTER_AIRDROP_DISTRIBUTED',
+      'SYSTEM',
+      `Admin distributed ₹${bonusAmount.toLocaleString()} airdrop to ${rewardedCount} active promoters (Min ${minReferrals} referrals). Total disbursed: ₹${totalAirdrop.toLocaleString()}`,
+      'info'
+    );
+
+    sounds.playCash();
+    showNotification(`🎁 Disbursed ₹${totalAirdrop.toLocaleString()} total airdrop to ${rewardedCount} promoters!`, 'success');
+    return { rewardedCount, totalAirdrop };
+  };
+
   const resetToDefaults = () => {
     localStorage.clear();
     setCurrentUser(INITIAL_USER);
@@ -1639,6 +2354,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         completeWatchPayDeposit,
         submitWithdrawalRequest,
         purchasePlan,
+        reinvestBalanceIntoPlan,
+        liquidateInvestment,
+        autoHarvestEnabled,
+        toggleAutoHarvest,
         claimDailyDividend,
         claimAllDividends,
         claimTeamCommission,
@@ -1646,7 +2365,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         claimDailyAgencySalary,
         dailyCheckin,
         executeSpin,
+        buySpinsWithBalance,
         updateBankDetails,
+        updateProfile,
         switchUserAccount,
         redeemGiftCode,
         approveDeposit,
@@ -1673,6 +2394,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         exportDataToCsv,
         saveSettings,
         updateSettings: saveSettings,
+        triggerGlobalDividendRun,
+        triggerGlobalCommissionRebateRun,
+        distributePromoterAirdrop,
         resetToDefaults,
         recordsModalOpen,
         recordsDefaultTab,
@@ -1683,6 +2407,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         celebrationData,
         triggerIncomeCelebration,
         closeIncomeCelebration,
+        activePendingDeposit,
+        registerPendingDeposit,
+        clearPendingDeposit,
       }}
     >
       {children}

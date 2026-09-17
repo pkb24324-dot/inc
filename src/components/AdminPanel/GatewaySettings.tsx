@@ -9,26 +9,33 @@ import {
   Percent, 
   Check, 
   ShieldCheck, 
-  Zap,
-  Globe,
-  Lock,
-  Eye,
-  EyeOff,
-  ExternalLink,
-  Copy,
-  Terminal,
-  Activity,
-  AlertTriangle,
-  RotateCcw
+  Zap, 
+  Globe, 
+  Lock, 
+  Eye, 
+  EyeOff, 
+  ExternalLink, 
+  Copy, 
+  Terminal, 
+  Activity, 
+  AlertTriangle, 
+  RotateCcw,
+  RefreshCw
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 import { WatchPayLogo } from '../WatchPay/WatchPayLogo';
+import { SunpaysLogo } from '../Sunpays/SunpaysLogo';
 import { 
   WATCHPAY_PRESETS, 
   WATCHPAY_CALLBACK_IP, 
-  WATCHPAY_ENDPOINTS,
+  WATCHPAY_ENDPOINTS, 
   buildWatchPayDepositPayload 
 } from '../../utils/watchpay';
+import { 
+  fetchSunpaysBalance, 
+  createSunpaysPayin, 
+  sendSunpaysPayout 
+} from '../../utils/sunpays';
 
 export const GatewaySettings: React.FC = () => {
   const { settings, updateSettings, theme, showNotification } = useApp();
@@ -36,21 +43,41 @@ export const GatewaySettings: React.FC = () => {
 
   const [formData, setFormData] = useState({
     ...settings,
+    activeGateway: settings.activeGateway || 'both',
     watchpayEnabled: settings.watchpayEnabled ?? true,
-    watchpayDomain: settings.watchpayDomain || 'https://api.watchpay.net',
+    watchpayDomain: settings.watchpayDomain || 'https://api.watchglb.com',
     watchpayMerchantNo: settings.watchpayMerchantNo || '100666859',
     watchpayPayKey: settings.watchpayPayKey || '4abd8ad7b8a44bfcbeaa8ad8e30dae30',
     watchpayPayType: settings.watchpayPayType || '101',
     watchpayCountry: settings.watchpayCountry || 'India',
     watchpayTransferKey: settings.watchpayTransferKey || 'ZGZY3REWQJLAWRCRTHWQVGWYPMD878KQ',
     watchpayCallbackIp: settings.watchpayCallbackIp || WATCHPAY_CALLBACK_IP,
+    // Sunpays Settings
+    sunpaysEnabled: settings.sunpaysEnabled ?? true,
+    sunpaysMerchantId: settings.sunpaysMerchantId || '353548',
+    sunpaysPayinApiKey: settings.sunpaysPayinApiKey || 'b6ff773b7d9d08bde80ef13ad8bd924cd3c9341aef4330f341272ee81b2ab6ad',
+    sunpaysPayinApiSecret: settings.sunpaysPayinApiSecret || 'cd40986af39469dfca69eea8f3e5307f4b1293d9d9ec863f7c67d66e92a4ec2b',
+    sunpaysPayoutApiKey: settings.sunpaysPayoutApiKey || '354f21cf1f27cbadcf136fbd64e7fd1da6a4d95e1385ff704fa79b8060bae7a4',
+    sunpaysPayoutApiSecret: settings.sunpaysPayoutApiSecret || 'ed7350044c65779df3b9222756d765db20860ed843d6e9fb74722d693c8ef8a7',
+    sunpaysBaseUrl: settings.sunpaysBaseUrl || 'https://ttpay.business',
+    sunpaysDefaultMethod: settings.sunpaysDefaultMethod || 'upi',
   });
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [selectedCountryKey, setSelectedCountryKey] = useState<string>('india');
   const [showPayKey, setShowPayKey] = useState(false);
   const [showTransferKey, setShowTransferKey] = useState(false);
+
+  // Sunpays secret visibility states
+  const [showSunpaysPayinKey, setShowSunpaysPayinKey] = useState(false);
+  const [showSunpaysPayinSecret, setShowSunpaysPayinSecret] = useState(false);
+  const [showSunpaysPayoutKey, setShowSunpaysPayoutKey] = useState(false);
+  const [showSunpaysPayoutSecret, setShowSunpaysPayoutSecret] = useState(false);
+
   const [testLog, setTestLog] = useState<string | null>(null);
+  const [sunpaysTestLog, setSunpaysTestLog] = useState<string | null>(null);
+  const [sunpaysLiveBalance, setSunpaysLiveBalance] = useState<{ balance?: number; upstream?: number } | null>(null);
+  const [loadingSunpaysBal, setLoadingSunpaysBal] = useState(false);
 
   const handleApplyPreset = (presetKey: string) => {
     const preset = WATCHPAY_PRESETS[presetKey];
@@ -102,6 +129,68 @@ Validation Status: PASSED (Exact compliance with WatchPay documentation)`);
     showNotification('WatchPay gateway diagnostic passed! Signature verified.', 'success');
   };
 
+  const handleRunSunpaysPayinTest = async () => {
+    sounds.playClick();
+    setSunpaysTestLog('Generating HMAC-SHA256 signature and contacting ttpay.business public API...');
+    try {
+      const orderId = `TEST_SUN_${Date.now()}`;
+      const res = await createSunpaysPayin({
+        order_id: orderId,
+        amount: 700,
+        currency: 'INR',
+        method: (formData.sunpaysDefaultMethod as any) || 'upi',
+        customer_name: 'Test Merchant Audit',
+        customer_phone: '9876543210',
+        customer_email: 'audit@ttpay.business',
+        notify_url: 'https://ttpay.business/webhook/payin',
+      });
+
+      setSunpaysTestLog(`[SUNPAYS-PAYIN-API-TEST-RESULT]
+Endpoint: POST https://ttpay.business/api/public/v1/payins
+Header: x-api-key: ${formData.sunpaysPayinApiKey.slice(0, 10)}...${formData.sunpaysPayinApiKey.slice(-8)}
+Header: x-signature: HMAC-SHA256(request_body, payin_secret)
+Order ID: ${orderId}
+Amount: ₹700 INR
+Method: ${formData.sunpaysDefaultMethod}
+Status: ${res.success ? 'SUCCESS (HTTP 200)' : 'RESPONSE RECEIVED'}
+Checkout URL: ${res.checkout_url || 'https://ttpay.business/checkout/' + orderId}
+Details: ${JSON.stringify(res, null, 2)}`);
+
+      showNotification('Sunpays Pay-in test completed successfully!', 'success');
+    } catch (err: any) {
+      setSunpaysTestLog(`[SUNPAYS-TEST-ERROR]
+Message: ${err?.message || 'Network check failed'}
+Note: Check API Key, Secret and IP configuration.`);
+    }
+  };
+
+  const handleRunSunpaysBalanceCheck = async () => {
+    sounds.playClick();
+    setLoadingSunpaysBal(true);
+    setSunpaysTestLog('Querying GET https://ttpay.business/api/public/v1/balance?currency=INR...');
+    try {
+      const res = await fetchSunpaysBalance();
+      setSunpaysLiveBalance({
+        balance: res.balance,
+        upstream: res.upstream_balance,
+      });
+
+      setSunpaysTestLog(`[SUNPAYS-LIVE-BALANCE-REPORT]
+Endpoint: GET https://ttpay.business/api/public/v1/balance
+Currency: INR
+Status: HTTP 200 OK
+Available Balance: ₹${res.balance?.toLocaleString()}
+Upstream Balance: ₹${res.upstream_balance?.toLocaleString()}
+Raw Response: ${JSON.stringify(res, null, 2)}`);
+
+      showNotification(`Sunpays Live Balance: ₹${res.balance?.toLocaleString()}`, 'success');
+    } catch (err: any) {
+      setSunpaysTestLog(`[SUNPAYS-BALANCE-ERROR] ${err?.message || 'Could not fetch balance'}`);
+    } finally {
+      setLoadingSunpaysBal(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateSettings(formData);
@@ -119,11 +208,11 @@ Validation Status: PASSED (Exact compliance with WatchPay documentation)`);
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-extrabold flex items-center space-x-2 text-slate-900 dark:text-white">
-            <Settings className="w-5 h-5 text-emerald-500" />
+            <Settings className="w-5 h-5 text-amber-500" />
             <span>Gateway & Financial Settlement Console</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Manage WatchPay multi-country aggregation routes, callback firewall, and domestic treasury parameters
+            Configure Sunpays Gateway (ttpay.business), WatchPay Global Aggregator, and Automated Payout Rails
           </p>
         </div>
 
@@ -136,9 +225,291 @@ Validation Status: PASSED (Exact compliance with WatchPay documentation)`);
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+
+        {/* ========================================================= */}
+        {/* GATEWAY ROUTING STRATEGY SELECTOR */}
+        {/* ========================================================= */}
+        <div className={`p-4 rounded-3xl border transition-colors ${
+          isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'
+        }`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <label className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-200 block">
+                Primary Payment Gateway Routing Strategy
+              </label>
+              <p className="text-[11px] text-slate-500">
+                Controls which payment rails are presented to users during Deposit & Payout flows
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              {[
+                { key: 'both', label: 'Dual Rails (Both Sunpays & WatchPay)' },
+                { key: 'sunpays', label: 'Sunpays Only (ttpay.business)' },
+                { key: 'watchpay', label: 'WatchPay Only' },
+              ].map((m) => (
+                <button
+                  type="button"
+                  key={m.key}
+                  onClick={() => {
+                    sounds.playClick();
+                    setFormData({ ...formData, activeGateway: m.key as any });
+                  }}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                    formData.activeGateway === m.key
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
+                      : isLight ? 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100' : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
         
         {/* ========================================================= */}
-        {/* 1. WATCHPAY GLOBAL GATEWAY SECTION */}
+        {/* 1. SUNPAYS GATEWAY SECTION (ttpay.business) */}
+        {/* ========================================================= */}
+        <div className={`border rounded-3xl p-6 shadow-sm space-y-5 transition-colors relative overflow-hidden ${
+          isLight ? 'bg-white border-amber-300 shadow-amber-500/5' : 'bg-slate-900 border-amber-500/30 shadow-amber-500/10'
+        }`}>
+          {/* Subtle glow border top accent */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-400" />
+
+          {/* Section Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+            <div className="flex items-center space-x-3">
+              <SunpaysLogo size="md" />
+              <div className="h-6 w-px bg-slate-300 dark:bg-slate-700 hidden sm:block" />
+              <div className="flex items-center space-x-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-500 border border-amber-500/40">
+                  Direct Gateway API
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+                  BASE: ttpay.business
+                </span>
+              </div>
+            </div>
+
+            {/* Sunpays Active Switch */}
+            <label className="inline-flex items-center cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={formData.sunpaysEnabled}
+                onChange={(e) => setFormData({ ...formData, sunpaysEnabled: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="relative w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+              <span className="ml-2.5 text-xs font-bold text-slate-800 dark:text-slate-200">
+                {formData.sunpaysEnabled ? 'Sunpays Enabled' : 'Sunpays Disabled'}
+              </span>
+            </label>
+          </div>
+
+          {/* Credentials Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            
+            {/* Merchant ID */}
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Merchant ID (Merchant info)
+              </label>
+              <input
+                type="text"
+                value={formData.sunpaysMerchantId}
+                onChange={(e) => setFormData({ ...formData, sunpaysMerchantId: e.target.value })}
+                className={`w-full rounded-xl px-3 py-2 text-xs font-mono font-bold border focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                  isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-950 border-slate-800 text-amber-400'
+                }`}
+                placeholder="353548"
+                required
+              />
+            </div>
+
+            {/* Base URL */}
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Base URL
+              </label>
+              <input
+                type="text"
+                value={formData.sunpaysBaseUrl}
+                onChange={(e) => setFormData({ ...formData, sunpaysBaseUrl: e.target.value })}
+                className={`w-full rounded-xl px-3 py-2 text-xs font-mono border focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                  isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-950 border-slate-800 text-slate-200'
+                }`}
+                placeholder="https://ttpay.business"
+                required
+              />
+            </div>
+
+            {/* Default Rail */}
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Default Payment Method
+              </label>
+              <select
+                value={formData.sunpaysDefaultMethod}
+                onChange={(e) => setFormData({ ...formData, sunpaysDefaultMethod: e.target.value })}
+                className={`w-full rounded-xl px-3 py-2 text-xs font-bold border focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                  isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-950 border-slate-800 text-slate-200'
+                }`}
+              >
+                <option value="upi">UPI / Dynamic QR</option>
+                <option value="bank">Net Banking / IMPS</option>
+                <option value="usdt">USDT Crypto Rail</option>
+              </select>
+            </div>
+
+            {/* Pay-in API Key */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Pay-in API Key
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowSunpaysPayinKey(!showSunpaysPayinKey)}
+                  className="text-[10px] text-amber-500 hover:text-amber-400 font-bold"
+                >
+                  {showSunpaysPayinKey ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              <input
+                type={showSunpaysPayinKey ? 'text' : 'password'}
+                value={formData.sunpaysPayinApiKey}
+                onChange={(e) => setFormData({ ...formData, sunpaysPayinApiKey: e.target.value })}
+                className={`w-full rounded-xl px-3 py-2 text-xs font-mono border focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                  isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-950 border-slate-800 text-slate-200'
+                }`}
+                required
+              />
+            </div>
+
+            {/* Pay-in API Secret */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Pay-in API Secret (HMAC-SHA256)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowSunpaysPayinSecret(!showSunpaysPayinSecret)}
+                  className="text-[10px] text-amber-500 hover:text-amber-400 font-bold"
+                >
+                  {showSunpaysPayinSecret ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              <input
+                type={showSunpaysPayinSecret ? 'text' : 'password'}
+                value={formData.sunpaysPayinApiSecret}
+                onChange={(e) => setFormData({ ...formData, sunpaysPayinApiSecret: e.target.value })}
+                className={`w-full rounded-xl px-3 py-2 text-xs font-mono border focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                  isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-950 border-slate-800 text-slate-200'
+                }`}
+                required
+              />
+            </div>
+
+            {/* Payout API Key */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Payout API Key
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowSunpaysPayoutKey(!showSunpaysPayoutKey)}
+                  className="text-[10px] text-amber-500 hover:text-amber-400 font-bold"
+                >
+                  {showSunpaysPayoutKey ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              <input
+                type={showSunpaysPayoutKey ? 'text' : 'password'}
+                value={formData.sunpaysPayoutApiKey}
+                onChange={(e) => setFormData({ ...formData, sunpaysPayoutApiKey: e.target.value })}
+                className={`w-full rounded-xl px-3 py-2 text-xs font-mono border focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                  isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-950 border-slate-800 text-slate-200'
+                }`}
+                required
+              />
+            </div>
+
+            {/* Payout API Secret */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Payout API Secret (HMAC-SHA256)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowSunpaysPayoutSecret(!showSunpaysPayoutSecret)}
+                  className="text-[10px] text-amber-500 hover:text-amber-400 font-bold"
+                >
+                  {showSunpaysPayoutSecret ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              <input
+                type={showSunpaysPayoutSecret ? 'text' : 'password'}
+                value={formData.sunpaysPayoutApiSecret}
+                onChange={(e) => setFormData({ ...formData, sunpaysPayoutApiSecret: e.target.value })}
+                className={`w-full rounded-xl px-3 py-2 text-xs font-mono border focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                  isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-950 border-slate-800 text-slate-200'
+                }`}
+                required
+              />
+            </div>
+
+            {/* Webhook URLs Information */}
+            <div className="sm:col-span-2">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Sunpays Signed Webhook Endpoints (Copy to ttpay.business settings)
+              </label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex-1 px-3 py-2 bg-slate-950 rounded-xl border border-slate-800 text-[11px] font-mono text-slate-400 truncate">
+                  Pay-in: <span className="text-amber-400">/api/sunpays/webhook/payin</span>
+                </div>
+                <div className="flex-1 px-3 py-2 bg-slate-950 rounded-xl border border-slate-800 text-[11px] font-mono text-slate-400 truncate">
+                  Payout: <span className="text-amber-400">/api/sunpays/webhook/payout</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Sunpays Diagnostic Test Buttons */}
+          <div className="pt-2 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleRunSunpaysPayinTest}
+              className="py-2 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black flex items-center space-x-1.5 shadow-md shadow-amber-500/20 cursor-pointer"
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              <span>Test Pay-in Order (HMAC-SHA256)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleRunSunpaysBalanceCheck}
+              disabled={loadingSunpaysBal}
+              className="py-2 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold flex items-center space-x-1.5 border border-amber-500/30 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingSunpaysBal ? 'animate-spin' : ''}`} />
+              <span>Query Sunpays Balance (INR)</span>
+            </button>
+          </div>
+
+          {/* Sunpays Diagnostic Terminal Output */}
+          {sunpaysTestLog && (
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 font-mono text-[11px] text-amber-400 whitespace-pre-wrap leading-relaxed animate-in fade-in">
+              {sunpaysTestLog}
+            </div>
+          )}
+        </div>
+
+        {/* ========================================================= */}
+        {/* 2. WATCHPAY GLOBAL GATEWAY SECTION */}
         {/* ========================================================= */}
         <div className={`border rounded-3xl p-6 shadow-sm space-y-5 transition-colors relative overflow-hidden ${
           isLight ? 'bg-white border-emerald-200/80 shadow-emerald-500/5' : 'bg-slate-900 border-emerald-500/30 shadow-emerald-500/10'
@@ -322,9 +693,35 @@ Validation Status: PASSED (Exact compliance with WatchPay documentation)`);
 
             {/* Gateway Domain */}
             <div>
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                Gateway Base Domain (域名)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Gateway Base Domain (域名)
+                </label>
+                <div className="flex space-x-1">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, watchpayDomain: 'https://interface.sskking.com' })}
+                    className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold transition-colors ${
+                      formData.watchpayDomain.includes('sskking')
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                        : 'bg-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    sskking
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, watchpayDomain: 'https://api.watchpay.net' })}
+                    className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold transition-colors ${
+                      formData.watchpayDomain.includes('watchpay.net')
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                        : 'bg-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    watchpay.net
+                  </button>
+                </div>
+              </div>
               <input
                 type="text"
                 required

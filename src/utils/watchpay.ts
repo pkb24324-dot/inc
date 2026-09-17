@@ -24,8 +24,9 @@ export interface WatchPayCountryPreset {
 }
 
 export const WATCHPAY_CALLBACK_IP = '18.141.88.123';
-export const WATCHPAY_DEFAULT_DOMAIN = 'https://interface.sskking.com';
+export const WATCHPAY_DEFAULT_DOMAIN = 'https://api.watchglb.com';
 export const WATCHPAY_ALT_DOMAINS = [
+  'https://api.watchglb.com',
   'https://interface.sskking.com',
   'https://api.watchpay.net',
 ];
@@ -39,7 +40,7 @@ export const WATCHPAY_ENDPOINTS = {
 
 export const WATCHPAY_PRESETS: Record<string, WatchPayCountryPreset> = {
   india: {
-    country: 'India (Live)',
+    country: 'India (Live WatchPay)',
     flag: '🇮🇳',
     currency: 'INR',
     symbol: '₹',
@@ -47,11 +48,11 @@ export const WATCHPAY_PRESETS: Record<string, WatchPayCountryPreset> = {
     payKey: '4abd8ad7b8a44bfcbeaa8ad8e30dae30',
     transferKey: 'ZGZY3REWQJLAWRCRTHWQVGWYPMD878KQ',
     defaultPayType: '101',
-    notes: 'Live Merchant 100666859 (Active Deposit Channel pay_type=101)',
+    notes: 'Live WatchPay Merchant 100666859 (Gateway: api.watchglb.com, pay_type=101)',
     channelsTier1: [
-      { code: '101', name: 'Paytm Native 一类', description: '印度Paytm原生一类 (推荐使用)', category: 'tier1' },
-      { code: '104', name: 'Paytm 娱乐', description: '印度Paytm娱乐通道', category: 'tier1' },
-      { code: '131', name: 'Paytm 跑分一类', description: '印度Paytm跑分一类高并发通道', category: 'tier1' },
+      { code: '101', name: 'WatchPay Native 一类 (Paytm/UPI)', description: 'WatchPay 极速原生通道 pay_type=101 (推荐使用)', category: 'tier1' },
+      { code: '104', name: 'WatchPay 娱乐', description: '印度Paytm娱乐通道', category: 'tier1' },
+      { code: '131', name: 'WatchPay 跑分一类', description: '印度Paytm跑分一类高并发通道', category: 'tier1' },
       { code: '132', name: 'UPI 跑分一类', description: 'UPI跑分一类极速结算', category: 'tier1' },
     ],
     channelsTier2: [
@@ -436,14 +437,13 @@ export function buildWatchPayDepositPayload(options: {
   postActionUrl: string;
 } {
   const baseDomain = (options.domain || WATCHPAY_DEFAULT_DOMAIN).replace(/\/+$/, '');
-  const orderNo = options.orderNo || `WP${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
+  const orderNo = options.orderNo || `ORD${Math.floor(Date.now() / 1000)}${Math.floor(1000 + Math.random() * 9000)}`;
   const amountStr = options.amount % 1 === 0 ? options.amount.toString() : options.amount.toFixed(2);
   const orderDate = formatWatchPayDate();
-  const goodsName = options.goodsName || `Recharge ${amountStr}`;
+  const goodsName = options.goodsName || 'Recharge';
 
-  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://api.watchpay.net';
-  const notifyUrl = options.notifyUrl || `${currentOrigin}/api/watchpay/callback`;
-  const pageUrl = options.pageUrl || `${currentOrigin}/`;
+  const notifyUrl = options.notifyUrl || 'https://invest.a1h.in/pay/notify.php';
+  const pageUrl = options.pageUrl || 'https://invest.a1h.in/success.php';
 
   // 1. Direct POST Redirection parameters (no version field, per doc:
   // "You need to be redirected directly to the payment page; you don't need to fill in the version number. Use a POST request.")

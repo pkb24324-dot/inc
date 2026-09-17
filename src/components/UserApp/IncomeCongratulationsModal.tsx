@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
   CheckCircle2, 
-  Sparkles, 
   Share2, 
   FileText, 
   ArrowRight, 
@@ -19,7 +18,9 @@ import {
   Wallet
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { WhatsAppIcon } from '../common/SocialIcons';
 import { sounds } from '../../utils/audio';
+import { ProfessionalAmount } from '../common/ProfessionalAmount';
 
 export const IncomeCongratulationsModal: React.FC = () => {
   const { 
@@ -108,7 +109,7 @@ export const IncomeCongratulationsModal: React.FC = () => {
       case 'milestone':
         return <Flame className="w-5 h-5 text-amber-400" />;
       case 'spin':
-        return <Sparkles className="w-5 h-5 text-pink-400" />;
+        return <Award className="w-5 h-5 text-pink-400" />;
       default:
         return <Zap className="w-5 h-5 text-emerald-400" />;
     }
@@ -197,8 +198,14 @@ export const IncomeCongratulationsModal: React.FC = () => {
           <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-0.5">
             Total Settled Amount
           </span>
-          <div className="font-mono text-3xl sm:text-4xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight flex items-center justify-center space-x-1">
-            <span>+₹{celebrationData.amount.toLocaleString()}</span>
+          <div className="flex items-center justify-center space-x-1 my-1">
+            <ProfessionalAmount
+              amount={celebrationData.amount}
+              size="3xl"
+              color="emerald"
+              currencyPrefix="+₹"
+              showCurrencyBadge={true}
+            />
           </div>
 
           {celebrationData.planName && (
@@ -259,9 +266,9 @@ export const IncomeCongratulationsModal: React.FC = () => {
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={handleShareWhatsApp}
-              className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-600/30 active:scale-95 transition-all"
+              className="py-2.5 px-3 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold flex items-center justify-center space-x-2 shadow-md shadow-[#25D366]/30 active:scale-95 transition-all cursor-pointer"
             >
-              <Share2 className="w-3.5 h-3.5" />
+              <WhatsAppIcon className="w-4 h-4 text-white" />
               <span>Share WhatsApp</span>
             </button>
 

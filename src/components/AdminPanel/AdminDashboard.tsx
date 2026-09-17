@@ -29,10 +29,16 @@ export const AdminDashboard: React.FC = () => {
     allUsers, 
     userInvestments, 
     plans,
+    settings,
+    saveSettings,
     setActiveAdminTab,
     exportDataToCsv,
     batchApproveDeposits,
     batchApproveWithdrawals,
+    triggerGlobalDividendRun,
+    triggerGlobalCommissionRebateRun,
+    distributePromoterAirdrop,
+    showNotification,
     fraudAlerts,
     giftCodes,
     theme
@@ -389,6 +395,107 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
 
+        </div>
+      </div>
+
+      {/* Executive Global Automation Command Deck & Circuit Breakers */}
+      <div className={`border rounded-3xl p-5 shadow-sm space-y-4 transition-colors ${
+        isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'
+      }`}>
+        <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b ${
+          isLight ? 'border-slate-200' : 'border-slate-800'
+        }`}>
+          <div className="flex items-center space-x-2">
+            <Zap className="w-5 h-5 text-amber-500 fill-amber-500" />
+            <h3 className="font-extrabold text-base font-['Outfit'] text-slate-900 dark:text-white">
+              Executive Automation Hub & Platform Circuit Breakers
+            </h3>
+          </div>
+          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
+            System Control Center
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Action 1: Force Dividend Run */}
+          <button
+            onClick={() => {
+              sounds.playCash();
+              const res = triggerGlobalDividendRun();
+              showNotification(`⚡ Force Dividend settlement executed! Credited ${res.processedCount} contracts (+₹${res.totalDistributed.toLocaleString()})`, 'success');
+            }}
+            className="p-3.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-left transition-all group active:scale-98"
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Run Dividend Cycle</span>
+              <TrendingUp className="w-4 h-4 text-emerald-500 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Instantly settle daily profits for all active user contracts
+            </p>
+          </button>
+
+          {/* Action 2: Force Commission Rebate */}
+          <button
+            onClick={() => {
+              sounds.playCash();
+              const res = triggerGlobalCommissionRebateRun();
+              showNotification(`⚡ Agency Rebate executed! Disbursed to ${res.processedCount} promoters (+₹${res.totalDistributed.toLocaleString()})`, 'success');
+            }}
+            className="p-3.5 rounded-2xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-left transition-all group active:scale-98"
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">Sweep Agency Rebates</span>
+              <Users className="w-4 h-4 text-indigo-500 group-hover:scale-110 transition-transform" />
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Disburse pending L1, L2, L3 commissions to all downline teams
+            </p>
+          </button>
+
+          {/* Action 3: Promoter Airdrop */}
+          <button
+            onClick={() => {
+              sounds.playSuccess();
+              const res = distributePromoterAirdrop(300, 3);
+              showNotification(`🎁 Airdropped ₹300 to ${res.rewardedCount} active promoters!`, 'success');
+            }}
+            className="p-3.5 rounded-2xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-left transition-all group active:scale-98"
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold text-purple-600 dark:text-purple-400">Promoter Airdrop (₹300)</span>
+              <Gift className="w-4 h-4 text-purple-500 group-hover:bounce transition-transform" />
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Credit incentive bonus to all agents with 3+ referrals
+            </p>
+          </button>
+
+          {/* Action 4: Circuit Breaker - Freeze Withdrawals */}
+          <button
+            onClick={() => {
+              const next = !settings.globalFreezeWithdrawals;
+              saveSettings({ globalFreezeWithdrawals: next });
+              if (next) sounds.playError();
+              else sounds.playSuccess();
+              showNotification(next ? '⚠️ Emergency Circuit Breaker: Withdrawals FROZEN' : 'Withdrawals Resumed Normal Operation', next ? 'error' : 'success');
+            }}
+            className={`p-3.5 rounded-2xl border text-left transition-all group active:scale-98 ${
+              settings.globalFreezeWithdrawals
+                ? 'bg-red-500/20 border-red-500/40 text-red-300'
+                : 'bg-slate-800/40 border-slate-700 hover:bg-slate-800 text-slate-300'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold text-red-500">
+                {settings.globalFreezeWithdrawals ? 'Withdrawals FROZEN' : 'Freeze Withdrawals'}
+              </span>
+              <ShieldAlert className={`w-4 h-4 ${settings.globalFreezeWithdrawals ? 'text-red-500 animate-pulse' : 'text-slate-500'}`} />
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              {settings.globalFreezeWithdrawals ? 'Clearing desk currently halted' : 'One-click platform payout kill-switch'}
+            </p>
+          </button>
         </div>
       </div>
 

@@ -21,7 +21,9 @@ import {
   Building2,
   RefreshCw,
   Download,
-  HelpCircle
+  HelpCircle,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
@@ -40,6 +42,12 @@ export const DepositApprovals: React.FC = () => {
 
   const isLight = theme === 'light';
   
+  const [layoutMode, setLayoutMode] = useState<'cards' | 'table'>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return 'cards';
+    }
+    return 'table';
+  });
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [highValueOnly, setHighValueOnly] = useState(false);
@@ -340,6 +348,36 @@ export const DepositApprovals: React.FC = () => {
               </button>
             ))}
           </div>
+
+          {/* Layout Mode Toggle (Cards vs Table) */}
+          <div className={`flex rounded-xl p-1 border ${
+            isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950 border-slate-800'
+          }`}>
+            <button
+              type="button"
+              onClick={() => setLayoutMode('cards')}
+              className={`p-1.5 rounded-lg transition-colors ${
+                layoutMode === 'cards'
+                  ? isLight ? 'bg-white text-blue-600 shadow-xs' : 'bg-blue-600 text-white'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+              title="Cards View (Mobile / Tablet Friendly)"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayoutMode('table')}
+              className={`p-1.5 rounded-lg transition-colors ${
+                layoutMode === 'table'
+                  ? isLight ? 'bg-white text-blue-600 shadow-xs' : 'bg-blue-600 text-white'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+              title="Table View (Desktop Dense)"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -385,198 +423,372 @@ export const DepositApprovals: React.FC = () => {
         </div>
       )}
 
-      {/* Table Container */}
-      <div className={`border rounded-3xl overflow-hidden shadow-sm transition-colors ${
-        isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'
-      }`}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className={`uppercase text-[10px] tracking-wider border-b ${
-              isLight ? 'bg-slate-50 text-slate-500 border-slate-200' : 'bg-slate-950/80 text-slate-400 border-slate-800'
-            }`}>
-              <tr>
-                <th className="px-4 py-3.5 w-10">
-                  {filter === 'pending' && pendingFiltered.length > 0 && (
-                    <button
-                      onClick={handleSelectAllPending}
-                      className="text-slate-400 hover:text-blue-600"
-                      title="Select all pending"
-                    >
-                      {selectedIds.length === pendingFiltered.length ? (
-                        <CheckSquare className="w-4 h-4 text-blue-600" />
-                      ) : (
-                        <Square className="w-4 h-4" />
+      {/* Content Display: Mobile/Tablet Cards View OR Dense Table View */}
+      {layoutMode === 'cards' ? (
+        filtered.length === 0 ? (
+          <div className={`p-12 text-center rounded-3xl border ${
+            isLight ? 'bg-white border-slate-200 text-slate-400' : 'bg-slate-900 border-slate-800 text-slate-400'
+          }`}>
+            No deposit requests match your filter.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+            {filtered.map((t) => {
+              const isSelected = selectedIds.includes(t.id);
+              const isDuplicateUtr = t.utrNumber && utrCounts[t.utrNumber.trim()] > 1;
+
+              return (
+                <div
+                  key={t.id}
+                  className={`rounded-2xl border p-4 flex flex-col justify-between transition-all ${
+                    isSelected
+                      ? isLight ? 'bg-blue-50/90 border-blue-400 ring-2 ring-blue-500/20' : 'bg-blue-900/20 border-blue-500'
+                      : isLight ? 'bg-white border-slate-200 shadow-xs hover:border-slate-300' : 'bg-slate-900 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  {/* Card Header: User info + Select Checkbox */}
+                  <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                        {t.userName}
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-mono">
+                        +91 {t.userPhone}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono truncate">
+                        ID: {t.id}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-1 flex-shrink-0">
+                      <span
+                        className={`inline-flex items-center space-x-1 text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${
+                          t.status === 'approved' || t.status === 'completed'
+                            ? isLight ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                            : t.status === 'pending'
+                            ? isLight ? 'bg-amber-100 text-amber-800' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                            : isLight ? 'bg-red-100 text-red-800' : 'bg-red-500/10 text-red-400 border border-red-500/30'
+                        }`}
+                      >
+                        {t.status === 'approved' && <CheckCircle2 className="w-2.5 h-2.5" />}
+                        {t.status === 'pending' && <Clock className="w-2.5 h-2.5 animate-spin" />}
+                        {t.status === 'rejected' && <AlertCircle className="w-2.5 h-2.5" />}
+                        <span>{t.status}</span>
+                      </span>
+
+                      {t.status === 'pending' && (
+                        <button
+                          onClick={() => toggleSelect(t.id)}
+                          className="p-1 rounded-md text-slate-400 hover:text-blue-600 active:scale-95 cursor-pointer"
+                          title="Select for batch action"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-5 h-5 text-blue-600" />
+                          ) : (
+                            <Square className="w-5 h-5" />
+                          )}
+                        </button>
                       )}
-                    </button>
-                  )}
-                </th>
-                <th className="px-4 py-3.5">Transaction & User</th>
-                <th className="px-4 py-3.5">Amount (₹)</th>
-                <th className="px-4 py-3.5">Gateway & UTR Number</th>
-                <th className="px-4 py-3.5">Date & Time</th>
-                <th className="px-4 py-3.5">Status</th>
-                <th className="px-4 py-3.5 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y ${isLight ? 'divide-slate-200' : 'divide-slate-800/60'}`}>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center text-slate-400">
-                    No deposit requests match your filter.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((t) => {
-                  const isSelected = selectedIds.includes(t.id);
-                  const isDuplicateUtr = t.utrNumber && utrCounts[t.utrNumber.trim()] > 1;
+                    </div>
+                  </div>
 
-                  return (
-                    <tr 
-                      key={t.id} 
-                      className={`transition-colors ${
-                        isSelected 
-                          ? isLight ? 'bg-blue-50' : 'bg-blue-900/20' 
-                          : isLight ? 'hover:bg-slate-50' : 'hover:bg-slate-850/50'
-                      }`}
-                    >
-                      {/* Selection Checkbox */}
-                      <td className="px-4 py-4">
-                        {t.status === 'pending' && (
-                          <button
-                            onClick={() => toggleSelect(t.id)}
-                            className="text-slate-400 hover:text-blue-600"
-                          >
-                            {isSelected ? (
-                              <CheckSquare className="w-4 h-4 text-blue-600" />
-                            ) : (
-                              <Square className="w-4 h-4" />
-                            )}
-                          </button>
-                        )}
-                      </td>
-                      
-                      {/* User */}
-                      <td className="px-4 py-4">
-                        <div className="font-bold text-sm text-slate-900 dark:text-white">{t.userName}</div>
-                        <div className="text-[11px] text-slate-500 font-mono">+91 {t.userPhone}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">{t.id}</div>
-                      </td>
-
-                      {/* Amount */}
-                      <td className="px-4 py-4">
-                        <div className="text-base font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                  {/* Card Body: Amount & UTR Details */}
+                  <div className="py-3 space-y-2.5">
+                    <div className="flex items-baseline justify-between">
+                      <div>
+                        <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono tracking-tight">
                           ₹{t.amount.toLocaleString()}
                         </div>
                         <span className="text-[10px] text-slate-400">Recharge Inflow</span>
-                      </td>
+                      </div>
+                      {t.amount >= 5000 && (
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                          ⚡ High Value
+                        </span>
+                      )}
+                    </div>
 
-                      {/* UTR */}
-                      <td className="px-4 py-4">
-                        <div className="flex items-center space-x-2">
-                          <span className={`text-xs font-mono font-bold px-2 py-1 rounded-lg border select-all ${
-                            isLight 
-                              ? 'bg-slate-50 border-slate-200 text-amber-700' 
-                              : 'bg-slate-950 border-slate-800 text-amber-400'
-                          }`}>
-                            {t.utrNumber || 'N/A'}
-                          </span>
-                          {t.utrNumber && (
-                            <button
-                              onClick={() => handleCopy(t.utrNumber!)}
-                              className={`p-1 rounded-md transition-colors ${
-                                isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white'
-                              }`}
-                              title="Copy UTR"
-                            >
-                              {copiedUtr === t.utrNumber ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                            </button>
+                    {/* UTR Box with 1-tap Copy */}
+                    <div className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 ${
+                      isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800/80'
+                    }`}>
+                      <div className="min-w-0">
+                        <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">
+                          UTR / Reference
+                        </span>
+                        <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 select-all truncate block">
+                          {t.utrNumber || 'N/A'}
+                        </span>
+                      </div>
+                      {t.utrNumber && (
+                        <button
+                          onClick={() => handleCopy(t.utrNumber!)}
+                          className={`p-1.5 rounded-lg border text-xs flex items-center space-x-1 transition-all active:scale-90 flex-shrink-0 cursor-pointer ${
+                            isLight ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100' : 'bg-slate-800 border-slate-700 text-slate-300'
+                          }`}
+                          title="Copy UTR"
+                        >
+                          {copiedUtr === t.utrNumber ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
                           )}
-                        </div>
-                        
-                        {isDuplicateUtr && (
-                          <div className="flex items-center space-x-1 text-[10px] text-red-600 dark:text-red-400 font-bold mt-1 bg-red-50 dark:bg-red-500/10 px-1.5 py-0.5 rounded w-fit">
-                            <AlertTriangle className="w-3 h-3" />
-                            <span>Duplicate UTR ({utrCounts[t.utrNumber!.trim()]}x)</span>
-                          </div>
-                        )}
+                          <span className="text-[10px] font-bold">Copy</span>
+                        </button>
+                      )}
+                    </div>
 
-                        <div className="flex items-center space-x-1.5 text-[10px] mt-1 text-slate-400 font-mono">
-                          <span className="text-blue-600 dark:text-blue-400 font-semibold">{t.channel || t.method || 'UPI-Fast'}</span>
-                          {t.orderId && <span>• {t.orderId}</span>}
-                        </div>
-                      </td>
+                    {isDuplicateUtr && (
+                      <div className="flex items-center space-x-1.5 text-[11px] text-red-600 dark:text-red-400 font-bold bg-red-500/10 border border-red-500/20 px-2 py-1 rounded-lg">
+                        <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>Duplicate UTR used {utrCounts[t.utrNumber!.trim()]}x!</span>
+                      </div>
+                    )}
 
-                      {/* Time */}
-                      <td className="px-4 py-4">
-                        <div className="font-mono text-slate-700 dark:text-slate-300">
-                          {new Date(t.createdAt).toLocaleDateString()}
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-mono">
-                          {new Date(t.createdAt).toLocaleTimeString()}
-                        </div>
-                      </td>
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                      <span className="font-semibold text-blue-600 dark:text-blue-400">
+                        {t.channel || t.method || 'UPI-Fast'}
+                      </span>
+                      <span className="font-mono text-[10px]">
+                        {new Date(t.createdAt).toLocaleDateString()} {new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
 
-                      {/* Status */}
-                      <td className="px-4 py-4">
-                        <span
-                          className={`inline-flex items-center space-x-1 text-[11px] font-bold px-2.5 py-1 rounded-full capitalize ${
-                            t.status === 'approved' || t.status === 'completed'
-                              ? isLight ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                              : t.status === 'pending'
-                              ? isLight ? 'bg-amber-100 text-amber-800' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                              : isLight ? 'bg-red-100 text-red-800' : 'bg-red-500/10 text-red-400 border border-red-500/30'
+                    {t.rejectionReason && (
+                      <p className="text-[11px] text-red-600 dark:text-red-400 bg-red-500/10 p-2 rounded-lg">
+                        Reason: {t.rejectionReason}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Card Actions (Large touch targets for phones) */}
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                    {t.status === 'pending' ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => handleApprove(t.id)}
+                          className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer"
+                        >
+                          <Check className="w-4 h-4" />
+                          <span>Approve</span>
+                        </button>
+                        <button
+                          onClick={() => setRejectModalTxnId(t.id)}
+                          className={`w-full py-2.5 px-3 rounded-xl font-bold text-xs border flex items-center justify-center space-x-1.5 active:scale-95 transition-all cursor-pointer ${
+                            isLight 
+                              ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' 
+                              : 'bg-slate-800 text-red-400 border-red-500/20 hover:bg-red-950/80'
                           }`}
                         >
-                          {t.status === 'approved' && <CheckCircle2 className="w-3 h-3" />}
-                          {t.status === 'pending' && <Clock className="w-3 h-3 animate-spin" />}
-                          {t.status === 'rejected' && <AlertCircle className="w-3 h-3" />}
-                          <span>{t.status}</span>
-                        </span>
-                        {t.rejectionReason && (
-                          <p className="text-[10px] text-red-600 dark:text-red-400 mt-1 max-w-xs truncate">
-                            Reason: {t.rejectionReason}
-                          </p>
-                        )}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-4 py-4 text-right">
-                        {t.status === 'pending' ? (
-                          <div className="flex items-center justify-end space-x-2">
-                            <button
-                              onClick={() => handleApprove(t.id)}
-                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center space-x-1 shadow-sm transition-all active:scale-95"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                              <span>Approve</span>
-                            </button>
-                            <button
-                              onClick={() => setRejectModalTxnId(t.id)}
-                              className={`px-3 py-1.5 rounded-xl font-bold text-xs border flex items-center space-x-1 transition-all ${
-                                isLight 
-                                  ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' 
-                                  : 'bg-slate-800 text-red-400 border-red-500/20 hover:bg-red-950/80'
-                              }`}
-                            >
-                              <X className="w-3.5 h-3.5" />
-                              <span>Reject</span>
-                            </button>
-                          </div>
+                          <X className="w-4 h-4" />
+                          <span>Reject</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-slate-400 text-center py-1">
+                        Processed by <span className="font-bold">{t.approvedBy || 'System'}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      ) : (
+        /* Table Container */
+        <div className={`border rounded-3xl overflow-hidden shadow-sm transition-colors ${
+          isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'
+        }`}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className={`uppercase text-[10px] tracking-wider border-b ${
+                isLight ? 'bg-slate-50 text-slate-500 border-slate-200' : 'bg-slate-950/80 text-slate-400 border-slate-800'
+              }`}>
+                <tr>
+                  <th className="px-4 py-3.5 w-10">
+                    {filter === 'pending' && pendingFiltered.length > 0 && (
+                      <button
+                        onClick={handleSelectAllPending}
+                        className="text-slate-400 hover:text-blue-600 cursor-pointer"
+                        title="Select all pending"
+                      >
+                        {selectedIds.length === pendingFiltered.length ? (
+                          <CheckSquare className="w-4 h-4 text-blue-600" />
                         ) : (
-                          <span className="text-[11px] text-slate-400 italic">
-                            {t.approvedBy || 'Processed'}
-                          </span>
+                          <Square className="w-4 h-4" />
                         )}
-                      </td>
+                      </button>
+                    )}
+                  </th>
+                  <th className="px-4 py-3.5">Transaction & User</th>
+                  <th className="px-4 py-3.5">Amount (₹)</th>
+                  <th className="px-4 py-3.5">Gateway & UTR Number</th>
+                  <th className="px-4 py-3.5">Date & Time</th>
+                  <th className="px-4 py-3.5">Status</th>
+                  <th className="px-4 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className={`divide-y ${isLight ? 'divide-slate-200' : 'divide-slate-800/60'}`}>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-5 py-12 text-center text-slate-400">
+                      No deposit requests match your filter.
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((t) => {
+                    const isSelected = selectedIds.includes(t.id);
+                    const isDuplicateUtr = t.utrNumber && utrCounts[t.utrNumber.trim()] > 1;
 
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                    return (
+                      <tr 
+                        key={t.id} 
+                        className={`transition-colors ${
+                          isSelected 
+                            ? isLight ? 'bg-blue-50' : 'bg-blue-900/20' 
+                            : isLight ? 'hover:bg-slate-50' : 'hover:bg-slate-850/50'
+                        }`}
+                      >
+                        {/* Selection Checkbox */}
+                        <td className="px-4 py-4">
+                          {t.status === 'pending' && (
+                            <button
+                              onClick={() => toggleSelect(t.id)}
+                              className="text-slate-400 hover:text-blue-600 cursor-pointer"
+                            >
+                              {isSelected ? (
+                                <CheckSquare className="w-4 h-4 text-blue-600" />
+                              ) : (
+                                <Square className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
+                        </td>
+                        
+                        {/* User */}
+                        <td className="px-4 py-4">
+                          <div className="font-bold text-sm text-slate-900 dark:text-white">{t.userName}</div>
+                          <div className="text-[11px] text-slate-500 font-mono">+91 {t.userPhone}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">{t.id}</div>
+                        </td>
+
+                        {/* Amount */}
+                        <td className="px-4 py-4">
+                          <div className="text-base font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                            ₹{t.amount.toLocaleString()}
+                          </div>
+                          <span className="text-[10px] text-slate-400">Recharge Inflow</span>
+                        </td>
+
+                        {/* UTR */}
+                        <td className="px-4 py-4">
+                          <div className="flex items-center space-x-2">
+                            <span className={`text-xs font-mono font-bold px-2 py-1 rounded-lg border select-all ${
+                              isLight 
+                                ? 'bg-slate-50 border-slate-200 text-amber-700' 
+                                : 'bg-slate-950 border-slate-800 text-amber-400'
+                            }`}>
+                              {t.utrNumber || 'N/A'}
+                            </span>
+                            {t.utrNumber && (
+                              <button
+                                onClick={() => handleCopy(t.utrNumber!)}
+                                className={`p-1 rounded-md transition-colors cursor-pointer ${
+                                  isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white'
+                                }`}
+                                title="Copy UTR"
+                              >
+                                {copiedUtr === t.utrNumber ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                              </button>
+                            )}
+                          </div>
+                          
+                          {isDuplicateUtr && (
+                            <div className="flex items-center space-x-1 text-[10px] text-red-600 dark:text-red-400 font-bold mt-1 bg-red-50 dark:bg-red-500/10 px-1.5 py-0.5 rounded w-fit">
+                              <AlertTriangle className="w-3 h-3" />
+                              <span>Duplicate UTR ({utrCounts[t.utrNumber!.trim()]}x)</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center space-x-1.5 text-[10px] mt-1 text-slate-400 font-mono">
+                            <span className="text-blue-600 dark:text-blue-400 font-semibold">{t.channel || t.method || 'UPI-Fast'}</span>
+                            {t.orderId && <span>• {t.orderId}</span>}
+                          </div>
+                        </td>
+
+                        {/* Time */}
+                        <td className="px-4 py-4">
+                          <div className="font-mono text-slate-700 dark:text-slate-300">
+                            {new Date(t.createdAt).toLocaleDateString()}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            {new Date(t.createdAt).toLocaleTimeString()}
+                          </div>
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-4 py-4">
+                          <span
+                            className={`inline-flex items-center space-x-1 text-[11px] font-bold px-2.5 py-1 rounded-full capitalize ${
+                              t.status === 'approved' || t.status === 'completed'
+                                ? isLight ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                : t.status === 'pending'
+                                ? isLight ? 'bg-amber-100 text-amber-800' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                                : isLight ? 'bg-red-100 text-red-800' : 'bg-red-500/10 text-red-400 border border-red-500/30'
+                            }`}
+                          >
+                            {t.status === 'approved' && <CheckCircle2 className="w-3 h-3" />}
+                            {t.status === 'pending' && <Clock className="w-3 h-3 animate-spin" />}
+                            {t.status === 'rejected' && <AlertCircle className="w-3 h-3" />}
+                            <span>{t.status}</span>
+                          </span>
+                          {t.rejectionReason && (
+                            <p className="text-[10px] text-red-600 dark:text-red-400 mt-1 max-w-xs truncate">
+                              Reason: {t.rejectionReason}
+                            </p>
+                          )}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-4 py-4 text-right">
+                          {t.status === 'pending' ? (
+                            <div className="flex items-center justify-end space-x-2">
+                              <button
+                                onClick={() => handleApprove(t.id)}
+                                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center space-x-1 shadow-sm transition-all active:scale-95 cursor-pointer"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Approve</span>
+                              </button>
+                              <button
+                                onClick={() => setRejectModalTxnId(t.id)}
+                                className={`px-3 py-1.5 rounded-xl font-bold text-xs border flex items-center space-x-1 transition-all cursor-pointer ${
+                                  isLight 
+                                    ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' 
+                                    : 'bg-slate-800 text-red-400 border-red-500/20 hover:bg-red-950/80'
+                                }`}
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                <span>Reject</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 italic">
+                              {t.approvedBy || 'Processed'}
+                            </span>
+                          )}
+                        </td>
+
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Manual Deposit Creator Modal */}
       {showManualModal && (

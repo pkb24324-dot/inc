@@ -6,18 +6,17 @@ import {
   Gift, 
   QrCode, 
   Headphones, 
-  Star, 
+  Award,
   TrendingUp, 
   ShoppingCart, 
   Check, 
   Clock, 
-  Sparkles,
   ShieldCheck,
   ChevronRight,
   Flame,
   Zap,
   Info,
-  FileText
+  Trophy
 } from 'lucide-react';
 import { RechargeModal } from './RechargeModal';
 import { WithdrawModal } from './WithdrawModal';
@@ -26,15 +25,20 @@ import { InviteModal } from './InviteModal';
 import { OnlineSupportModal } from './OnlineSupportModal';
 import { InvestmentPlan } from '../../types';
 import { sounds } from '../../utils/audio';
+import { ProfessionalAmount } from '../common/ProfessionalAmount';
+import { formatCurrencyINR } from '../../utils/currencyFormatter';
+import { HomeImageBanner } from './HomeImageBanner';
 
 export const HomeView: React.FC = () => {
   const { 
     currentUser, 
     plans, 
     purchasePlan, 
+    reinvestBalanceIntoPlan,
     settings,
     setActiveUserTab,
-    openRecordsModal 
+    openRecordsModal,
+    activePendingDeposit
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'normal' | 'vip' | 'flash' | 'high_return'>('normal');
@@ -95,141 +99,148 @@ export const HomeView: React.FC = () => {
   return (
     <div className="pb-28 max-w-xl mx-auto px-4 pt-3 space-y-4">
       
-      {/* Hero Banner (Designed exactly from user's uploaded screenshot) */}
-      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-800 p-6 shadow-xl border border-blue-400/30 text-white">
-        {/* Glow accent */}
-        <div className="absolute -top-12 -right-12 w-44 h-44 bg-sky-400/20 rounded-full blur-3xl" />
-        
-        <div className="relative z-10 flex flex-col justify-between min-h-[140px]">
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-              <span className="text-xs font-bold tracking-widest uppercase text-blue-200">
-                Official Industrial Asset Portfolio
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-['Outfit'] mt-1 text-white">
-              Strong Bonds.<br />Stronger Returns.
-            </h1>
-            <p className="text-xs text-blue-100/90 mt-1 max-w-xs leading-relaxed">
-              Backed by high-grade manufacturing lines & rapid capital turnarounds.
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between mt-4 pt-3 border-t border-blue-400/30">
-            <div className="text-[11px] text-blue-200 font-medium">
-              Daily Settlement: <span className="text-amber-300 font-bold">100% Guaranteed</span>
-            </div>
-            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-sm">
-              SEBI Compliant Node
+      {/* Active Deposit Polling Banner */}
+      {activePendingDeposit && (
+        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-600/10 to-slate-900 border border-amber-500/30 flex items-center justify-between shadow-lg animate-in fade-in">
+          <div className="flex items-center space-x-3">
+            <span className="relative flex h-3 w-3 flex-shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500" />
             </span>
+            <div>
+              <p className="text-xs font-bold text-amber-300 flex items-center space-x-1.5">
+                <span>Deposit In Progress:</span>
+                <span className="font-mono text-white">₹{activePendingDeposit.amount}</span>
+                <span className="text-[10px] font-mono text-amber-400/80">({activePendingDeposit.orderNo})</span>
+              </p>
+              <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                Real-time UPI verification active • Automated Settlement
+              </p>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setIsRechargeOpen(true)}
+            className="px-3.5 py-1.5 rounded-xl btn-chamko-gold text-slate-950 font-black text-xs flex items-center space-x-1.5 transition-transform active:scale-95 cursor-pointer shadow-md shadow-amber-500/30"
+          >
+            <span>Open Cashier</span>
+            <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
+          </button>
         </div>
-      </div>
+      )}
 
-      {/* Quick Actions (5 icons matching the screenshot) */}
-      <div className="grid grid-cols-5 gap-2 bg-slate-900/90 p-3 rounded-2xl border border-slate-800 shadow-md">
+      {/* Hero Image Banner Carousel */}
+      <HomeImageBanner 
+        onSelectTab={(tab) => setActiveTab(tab)} 
+        onOpenRecharge={() => setIsRechargeOpen(true)} 
+      />
+
+      {/* Quick Actions (5 radiant glossy icons matching the screenshot) */}
+      <div className="grid grid-cols-5 gap-1.5 bg-slate-900/90 p-2.5 rounded-2xl border border-slate-800 shadow-md">
         {/* Recharge */}
         <button
           onClick={() => setIsRechargeOpen(true)}
-          className="flex flex-col items-center group active:scale-95 transition-transform"
+          className="flex flex-col items-center group active:scale-95 transition-transform cursor-pointer"
         >
-          <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all shadow-sm">
-            <CreditCard className="w-5 h-5" />
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-b from-blue-500/25 to-blue-700/20 border border-blue-400/40 flex items-center justify-center text-blue-400 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white transition-all shadow-md shadow-blue-500/20 group-hover:shadow-blue-500/50">
+            <CreditCard className="w-5 h-5 filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
           </div>
-          <span className="text-[11px] font-semibold text-slate-300 mt-1.5 group-hover:text-blue-400">Recharge</span>
+          <span className="text-[10px] font-bold text-slate-300 mt-1 group-hover:text-blue-400 transition-colors">Recharge</span>
         </button>
 
         {/* Withdraw */}
         <button
           onClick={() => setIsWithdrawOpen(true)}
-          className="flex flex-col items-center group active:scale-95 transition-transform"
+          className="flex flex-col items-center group active:scale-95 transition-transform cursor-pointer"
         >
-          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-all shadow-sm">
-            <Download className="w-5 h-5" />
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-b from-indigo-500/25 to-indigo-700/20 border border-indigo-400/40 flex items-center justify-center text-indigo-400 group-hover:from-indigo-500 group-hover:to-indigo-600 group-hover:text-white transition-all shadow-md shadow-indigo-500/20 group-hover:shadow-indigo-500/50">
+            <Download className="w-5 h-5 filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
           </div>
-          <span className="text-[11px] font-semibold text-slate-300 mt-1.5 group-hover:text-indigo-400">Withdraw</span>
+          <span className="text-[10px] font-bold text-slate-300 mt-1 group-hover:text-indigo-400 transition-colors">Withdraw</span>
         </button>
 
         {/* Mission */}
         <button
           onClick={() => setIsMissionOpen(true)}
-          className="flex flex-col items-center group active:scale-95 transition-transform relative"
+          className="flex flex-col items-center group active:scale-95 transition-transform relative cursor-pointer"
         >
-          <span className="absolute -top-1.5 -right-0.5 bg-red-500 text-[9px] font-black text-white px-1.5 py-0.2 rounded-full uppercase">
+          <span className="absolute -top-1 -right-0.5 bg-red-500 text-[8px] font-black text-white px-1.5 py-0.2 rounded-full uppercase shadow-sm shadow-red-500/50 animate-pulse">
             New
           </span>
-          <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 group-hover:bg-red-500 group-hover:text-white transition-all shadow-sm">
-            <Gift className="w-5 h-5" />
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-b from-rose-500/25 to-red-700/20 border border-rose-400/40 flex items-center justify-center text-rose-400 group-hover:from-rose-500 group-hover:to-rose-600 group-hover:text-white transition-all shadow-md shadow-red-500/20 group-hover:shadow-red-500/50">
+            <Gift className="w-5 h-5 filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
           </div>
-          <span className="text-[11px] font-semibold text-slate-300 mt-1.5 group-hover:text-red-400">Mission</span>
+          <span className="text-[10px] font-bold text-slate-300 mt-1 group-hover:text-rose-400 transition-colors">Mission</span>
         </button>
 
         {/* Invite */}
         <button
           onClick={() => setIsInviteOpen(true)}
-          className="flex flex-col items-center group active:scale-95 transition-transform"
+          className="flex flex-col items-center group active:scale-95 transition-transform cursor-pointer"
         >
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:bg-amber-500 group-hover:text-slate-950 transition-all shadow-sm">
-            <QrCode className="w-5 h-5" />
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-b from-amber-500/25 to-amber-700/20 border border-amber-400/40 flex items-center justify-center text-amber-400 group-hover:from-amber-400 group-hover:to-amber-500 group-hover:text-slate-950 transition-all shadow-md shadow-amber-500/20 group-hover:shadow-amber-500/50">
+            <QrCode className="w-5 h-5 filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
           </div>
-          <span className="text-[11px] font-semibold text-slate-300 mt-1.5 group-hover:text-amber-400">Invite</span>
+          <span className="text-[10px] font-bold text-slate-300 mt-1 group-hover:text-amber-400 transition-colors">Invite</span>
         </button>
 
         {/* Online */}
         <button
           onClick={() => setIsOnlineOpen(true)}
-          className="flex flex-col items-center group active:scale-95 transition-transform"
+          className="flex flex-col items-center group active:scale-95 transition-transform cursor-pointer"
         >
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-sm">
-            <Headphones className="w-5 h-5" />
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-b from-emerald-500/25 to-emerald-700/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 group-hover:from-emerald-500 group-hover:to-emerald-600 group-hover:text-white transition-all shadow-md shadow-emerald-500/20 group-hover:shadow-emerald-500/50">
+            <Headphones className="w-5 h-5 filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
           </div>
-          <span className="text-[11px] font-semibold text-slate-300 mt-1.5 group-hover:text-emerald-400">Online</span>
+          <span className="text-[10px] font-bold text-slate-300 mt-1 group-hover:text-emerald-400 transition-colors">Online</span>
         </button>
       </div>
 
-      {/* Live Financial Records Strip (Recharge, Income, Withdrawal) */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-2.5 flex items-center justify-between text-xs shadow-sm">
-        <div className="flex items-center space-x-1.5 text-slate-400 font-medium pl-1">
-          <FileText className="w-3.5 h-3.5 text-blue-400" />
-          <span className="font-bold text-slate-300">Live Ledger:</span>
+      {/* Mega Fortune Wheel Quick Card */}
+      <div 
+        onClick={() => {
+          setActiveUserTab('spin');
+          sounds.playClick();
+        }}
+        className="bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-amber-600/20 border border-amber-500/40 rounded-2xl p-3.5 flex items-center justify-between shadow-lg shadow-amber-500/10 cursor-pointer hover:border-amber-400 active:scale-[0.99] transition-all group"
+      >
+        <div className="flex items-center space-x-3">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center text-slate-950 font-black shadow-md shadow-amber-500/30 group-hover:rotate-12 transition-transform">
+            <Trophy className="w-5 h-5 fill-current" />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-black text-white font-['Outfit']">Mega Fortune Wheel</span>
+              <span className="text-[9px] font-bold bg-amber-500/30 text-amber-300 px-1.5 py-0.2 rounded border border-amber-500/40 animate-pulse">
+                Win ₹2,000
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-0.5">
+              {currentUser.spinChances > 0 ? (
+                <span className="text-emerald-400 font-bold">🎉 You have {currentUser.spinChances} Free Spins waiting!</span>
+              ) : (
+                <span>Claim daily free spin & win instant cash</span>
+              )}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center space-x-1.5">
-          <button
-            onClick={() => openRecordsModal('recharge')}
-            className="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-bold text-[11px] border border-blue-500/20 flex items-center space-x-1 transition-colors"
-          >
-            <span>Recharge</span>
-            <span className="text-[9px] opacity-75 font-normal">रिकॉर्ड</span>
-          </button>
-          <button
-            onClick={() => openRecordsModal('income')}
-            className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-[11px] border border-emerald-500/20 flex items-center space-x-1 transition-colors"
-          >
-            <span>Income</span>
-            <span className="text-[9px] opacity-75 font-normal">रिकॉर्ड</span>
-          </button>
-          <button
-            onClick={() => openRecordsModal('withdrawal')}
-            className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold text-[11px] border border-amber-500/20 flex items-center space-x-1 transition-colors"
-          >
-            <span>Withdraw</span>
-            <span className="text-[9px] opacity-75 font-normal">रिकॉर्ड</span>
-          </button>
+        <div className="flex items-center space-x-1 text-amber-400 text-xs font-bold pl-2 flex-shrink-0">
+          <span>Spin Now</span>
+          <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
         </div>
       </div>
 
       {/* Plan Category Switcher Tabs (Normal vs Flash 1m-1h vs VIP vs High Return) */}
-      <div className="bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800 grid grid-cols-4 gap-1">
+      <div className="bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800 grid grid-cols-4 gap-1 shadow-sm">
         <button
           onClick={() => {
             setActiveTab('normal');
             sounds.playClick();
           }}
-          className={`py-2 px-1 rounded-xl text-[11px] font-bold transition-all text-center ${
+          className={`py-2 px-1 rounded-xl text-[10.5px] transition-all text-center cursor-pointer ${
             activeTab === 'normal'
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-              : 'text-slate-400 hover:text-slate-200'
+              ? 'btn-chamko-blue font-black text-white shadow-md shadow-blue-600/40 scale-[1.02]'
+              : 'text-slate-400 hover:text-slate-200 font-semibold'
           }`}
         >
           Normal
@@ -240,15 +251,15 @@ export const HomeView: React.FC = () => {
             setActiveTab('flash');
             sounds.playClick();
           }}
-          className={`py-2 px-1 rounded-xl text-[11px] font-bold transition-all text-center relative ${
+          className={`py-2 px-1 rounded-xl text-[10.5px] transition-all text-center relative cursor-pointer ${
             activeTab === 'flash'
-              ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 shadow-md shadow-amber-500/30 font-black'
-              : 'text-amber-400 hover:text-amber-300'
+              ? 'btn-chamko-gold font-black text-slate-950 shadow-md shadow-amber-500/40 scale-[1.02]'
+              : 'text-amber-400 hover:text-amber-300 font-bold'
           }`}
         >
           <span className="flex items-center justify-center space-x-1">
-            <Zap className="w-3 h-3 fill-current" />
-            <span>1m-1h</span>
+            <Zap className="w-3.5 h-3.5 fill-current" />
+            <span>Flash Minutes</span>
           </span>
         </button>
 
@@ -257,10 +268,10 @@ export const HomeView: React.FC = () => {
             setActiveTab('vip');
             sounds.playClick();
           }}
-          className={`py-2 px-1 rounded-xl text-[11px] font-bold transition-all text-center ${
+          className={`py-2 px-1 rounded-xl text-[10.5px] transition-all text-center cursor-pointer ${
             activeTab === 'vip'
-              ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md shadow-orange-500/20'
-              : 'text-slate-400 hover:text-slate-200'
+              ? 'btn-chamko bg-gradient-to-r from-orange-500 to-rose-600 font-black text-white shadow-md shadow-orange-500/40 scale-[1.02]'
+              : 'text-slate-400 hover:text-slate-200 font-semibold'
           }`}
         >
           VIP Plan
@@ -271,10 +282,10 @@ export const HomeView: React.FC = () => {
             setActiveTab('high_return');
             sounds.playClick();
           }}
-          className={`py-2 px-1 rounded-xl text-[11px] font-bold transition-all text-center ${
+          className={`py-2 px-1 rounded-xl text-[10.5px] transition-all text-center cursor-pointer ${
             activeTab === 'high_return'
-              ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-              : 'text-slate-400 hover:text-slate-200'
+              ? 'btn-chamko bg-gradient-to-r from-purple-600 to-indigo-600 font-black text-white shadow-md shadow-purple-600/40 scale-[1.02]'
+              : 'text-slate-400 hover:text-slate-200 font-semibold'
           }`}
         >
           24H Return
@@ -285,19 +296,19 @@ export const HomeView: React.FC = () => {
       {activeTab === 'flash' && (
         <div className="bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-2xl space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-extrabold text-amber-400 flex items-center space-x-1.5">
-              <Zap className="w-4 h-4 fill-amber-400" />
-              <span>⚡ Flash Fast-Return Plans (1m - 1h)</span>
+            <span className="font-bold text-[11px] text-amber-400 flex items-center space-x-1">
+              <Zap className="w-3.5 h-3.5 fill-amber-400" />
+              <span>⚡ Flash Fast-Return Plans (1 Minute - 1 Hour)</span>
             </span>
-            <span className="text-[10px] bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">
+            <span className="text-[9.5px] bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">
               Instant Liquidity
             </span>
           </div>
           <div className="grid grid-cols-4 gap-1.5 pt-0.5">
             {[
-              { id: 'all', label: 'All (1m-1h)' },
-              { id: '1-5m', label: '1 - 5 Min' },
-              { id: '15-30m', label: '15 - 30 Min' },
+              { id: 'all', label: 'All Plans' },
+              { id: '1-5m', label: '1 - 5 Minutes' },
+              { id: '15-30m', label: '15 - 30 Minutes' },
               { id: '1h', label: '1 Hour' },
             ].map((filter) => (
               <button
@@ -324,77 +335,87 @@ export const HomeView: React.FC = () => {
         {filteredPlans.map((plan) => (
           <div
             key={plan.id}
-            className="bg-slate-900 border border-slate-800 rounded-3xl p-4 shadow-xl relative overflow-hidden group hover:border-slate-700 transition-all"
+            className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-lg relative overflow-hidden group hover:border-slate-700 transition-all"
           >
             {/* Ribbon Badge (Top Right) */}
             <div className="absolute top-0 right-0">
-              <div className="bg-gradient-to-l from-blue-600 to-indigo-700 text-white text-[10px] font-extrabold px-3 py-1 rounded-bl-2xl shadow-md flex items-center space-x-1">
-                <Star className="w-3 h-3 fill-amber-300 text-amber-300" />
+              <div className="bg-gradient-to-l from-blue-600 to-indigo-700 text-white text-[9px] font-bold px-2.5 py-0.5 rounded-bl-xl shadow-md flex items-center space-x-1">
+                <Award className="w-2.5 h-2.5 text-amber-300" />
                 <span>{plan.badge}</span>
               </div>
             </div>
 
-            <div className="flex gap-4 items-center">
+            <div className="flex gap-3 items-center">
               {/* Product Visual Container */}
-              <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-slate-950 border border-slate-800 overflow-hidden flex-shrink-0 relative group-hover:scale-102 transition-transform">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl bg-slate-950 border border-slate-800 overflow-hidden flex-shrink-0 relative group-hover:scale-102 transition-transform">
                 <img
                   src={plan.imageUrl}
                   alt={plan.name}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute bottom-1 right-1 bg-black/70 backdrop-blur-xs text-[9px] font-mono text-amber-300 font-bold px-1.5 py-0.5 rounded border border-amber-500/20">
+                <div className="absolute bottom-1 right-1 bg-black/75 backdrop-blur-xs text-[8.5px] font-mono text-amber-300 font-bold px-1.5 py-0.2 rounded border border-amber-500/20">
                   {getDurationLabel(plan)}
                 </div>
               </div>
 
               {/* Product Info & Metrics */}
-              <div className="flex-1 space-y-2">
-                <h3 className="text-base font-extrabold text-white leading-tight font-['Outfit'] pr-14">
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <h3 className="text-xs sm:text-[13.5px] font-bold text-white leading-snug font-['Outfit'] pr-12 truncate">
                   {plan.name}
                 </h3>
 
                 {/* Big Price Display */}
-                <div className="flex items-baseline space-x-1.5">
-                  <span className="text-2xl font-black text-white font-mono">
-                    ₹{plan.price.toLocaleString()}
-                  </span>
-                  <span className="text-xs font-semibold text-slate-400">
+                <div className="flex items-baseline space-x-1">
+                  <ProfessionalAmount
+                    amount={plan.price}
+                    size="md"
+                    color="white"
+                    showDecimals={false}
+                  />
+                  <span className="text-[10.5px] font-semibold text-slate-400">
                     / {getDurationLabel(plan)}
                   </span>
                 </div>
 
                 {/* Return Stats Cards (Matches screenshot Daily vs Total pills) */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between bg-slate-950/70 border border-slate-800/80 px-2.5 py-1 rounded-xl">
-                    <div className="flex items-center space-x-1.5 text-slate-400 text-xs font-medium">
-                      <TrendingUp className="w-3.5 h-3.5 text-blue-400" />
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between bg-slate-950/70 border border-slate-800/80 px-2 py-1 rounded-lg">
+                    <div className="flex items-center space-x-1 text-slate-400 text-[10.5px] font-medium">
+                      <TrendingUp className="w-3 h-3 text-blue-400" />
                       <span>{plan.category === 'flash' ? 'Settlement' : 'Daily'}</span>
                     </div>
-                    <span className="font-mono font-bold text-xs text-white">
-                      ₹{plan.category === 'flash' ? plan.totalRevenue.toLocaleString() : plan.dailyIncome.toLocaleString()}
-                    </span>
+                    <ProfessionalAmount
+                      amount={plan.category === 'flash' ? plan.totalRevenue : plan.dailyIncome}
+                      size="xs"
+                      color="white"
+                      showDecimals={false}
+                    />
                   </div>
 
-                  <div className="flex items-center justify-between bg-slate-950/70 border border-slate-800/80 px-2.5 py-1 rounded-xl">
-                    <div className="flex items-center space-x-1.5 text-slate-400 text-xs font-medium">
-                      <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <div className="flex items-center justify-between bg-slate-950/70 border border-slate-800/80 px-2 py-1 rounded-lg">
+                    <div className="flex items-center space-x-1 text-slate-400 text-[10.5px] font-medium">
+                      <Zap className="w-3 h-3 text-amber-400" />
                       <span>{plan.category === 'flash' ? 'Net Profit' : 'Total'}</span>
                     </div>
-                    <span className="font-mono font-extrabold text-xs text-amber-400">
-                      {plan.category === 'flash' ? `+₹${(plan.totalRevenue - plan.price).toLocaleString()}` : `₹${plan.totalRevenue.toLocaleString()}`}
-                    </span>
+                    <ProfessionalAmount
+                      amount={plan.category === 'flash' ? (plan.totalRevenue - plan.price) : plan.totalRevenue}
+                      size="xs"
+                      color="amber"
+                      currencyPrefix={plan.category === 'flash' ? '+₹' : '₹'}
+                      showDecimals={false}
+                    />
                   </div>
                 </div>
 
               </div>
             </div>
 
-            {/* Buy Now Button (Full width blue rounded button matching screenshot) */}
+            {/* Buy Now Button */}
             <button
               onClick={() => handleBuyClick(plan)}
-              className="mt-4 w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-98 text-white font-black text-sm flex items-center justify-center space-x-2 shadow-lg shadow-blue-600/30 transition-all"
+              className="mt-3 w-full py-2.5 rounded-xl btn-chamko-blue active:scale-98 text-white font-black text-xs flex items-center justify-center space-x-1.5 shadow-lg shadow-blue-600/30 transition-all cursor-pointer"
             >
-              <ShoppingCart className="w-4 h-4" />
+              <ShoppingCart className="w-3.5 h-3.5" />
               <span>Buy Now</span>
             </button>
 
@@ -470,21 +491,57 @@ export const HomeView: React.FC = () => {
               </div>
             )}
 
-            <div className="flex space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setSelectedPlanForBuy(null)}
-                className="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmPurchase}
-                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/30"
-              >
-                {currentUser.balance >= selectedPlanForBuy.price ? 'Confirm & Activate' : 'Recharge Wallet'}
-              </button>
+            <div className="space-y-2 pt-2">
+              {currentUser.balance >= selectedPlanForBuy.price ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const res = reinvestBalanceIntoPlan(selectedPlanForBuy.id);
+                      if (res.success) {
+                        setSelectedPlanForBuy(null);
+                      }
+                    }}
+                    className="w-full py-2.5 rounded-xl btn-chamko-emerald text-white text-xs font-black shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-1.5 transition-transform active:scale-98 cursor-pointer"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+                    <span>Auto-Compound Re-invest (+2% Bonus Profit)</span>
+                  </button>
+                  <div className="flex space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPlanForBuy(null)}
+                      className="flex-1 py-2 rounded-xl btn-chamko-glass text-slate-300 text-xs font-semibold hover:text-white cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmPurchase}
+                      className="flex-1 py-2 rounded-xl btn-chamko-blue text-white text-xs font-black shadow-md shadow-blue-600/40 cursor-pointer"
+                    >
+                      Standard Activate
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlanForBuy(null)}
+                    className="flex-1 py-2.5 rounded-xl btn-chamko-glass text-slate-300 text-xs font-semibold hover:text-white cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmPurchase}
+                    className="flex-1 py-2.5 rounded-xl btn-chamko-blue text-white text-xs font-black shadow-md shadow-blue-600/40 cursor-pointer"
+                  >
+                    Recharge Wallet
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

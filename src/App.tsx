@@ -10,7 +10,7 @@ import { BottomNav } from './components/UserApp/BottomNav';
 import { AdminPanel } from './components/AdminPanel/AdminPanel';
 import { FinancialRecordsModal } from './components/UserApp/FinancialRecordsModal';
 import { IncomeCongratulationsModal } from './components/UserApp/IncomeCongratulationsModal';
-import { Lock, ShieldCheck, KeyRound, Sparkles, ArrowRight } from 'lucide-react';
+import { Lock, ShieldCheck, KeyRound, ArrowRight } from 'lucide-react';
 import { sounds } from './utils/audio';
 
 const MainApp: React.FC = () => {
@@ -132,7 +132,7 @@ const MainApp: React.FC = () => {
                   onClick={handleQuickUnlock}
                   className="text-xs text-amber-400/90 hover:text-amber-300 flex items-center justify-center space-x-1 mx-auto font-bold py-1.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
+                  <KeyRound className="w-3.5 h-3.5" />
                   <span>1-Click Test Access: Unlock with Master PIN 8888</span>
                 </button>
 

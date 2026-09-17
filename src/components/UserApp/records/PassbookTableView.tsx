@@ -12,6 +12,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { Transaction } from '../../../types';
+import { formatCurrencyINR } from '../../../utils/currencyFormatter';
 
 interface Props {
   transactions: Transaction[];
@@ -43,7 +44,7 @@ export const PassbookTableView: React.FC<Props> = ({
               <th className="py-3 px-3.5 whitespace-nowrap">Transaction Particulars</th>
               <th className="py-3 px-3.5 text-right whitespace-nowrap">Debit (-)</th>
               <th className="py-3 px-3.5 text-right whitespace-nowrap">Credit (+)</th>
-              <th className="py-3 px-3.5 text-right whitespace-nowrap">Running Bal</th>
+              <th className="py-3 px-3.5 text-right whitespace-nowrap">Running Balance</th>
               <th className="py-3 px-3.5 text-center whitespace-nowrap">Status</th>
               <th className="py-3 px-3.5 text-right whitespace-nowrap">Action</th>
             </tr>
@@ -122,18 +123,18 @@ export const PassbookTableView: React.FC<Props> = ({
                   </td>
 
                   {/* Debit */}
-                  <td className="py-2.5 px-3.5 text-right font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap">
-                    {!isCredit ? `-₹${txn.amount.toLocaleString()}` : '—'}
+                  <td className="py-2.5 px-3.5 text-right font-mono font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                    {!isCredit ? `-${formatCurrencyINR(txn.amount)}` : '—'}
                   </td>
 
                   {/* Credit */}
-                  <td className="py-2.5 px-3.5 text-right font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
-                    {isCredit ? `+₹${txn.amount.toLocaleString()}` : '—'}
+                  <td className="py-2.5 px-3.5 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                    {isCredit ? `+${formatCurrencyINR(txn.amount)}` : '—'}
                   </td>
 
                   {/* Running Balance */}
-                  <td className="py-2.5 px-3.5 text-right font-black text-blue-600 dark:text-blue-400 whitespace-nowrap">
-                    {txn.runningBalance !== undefined ? `₹${txn.runningBalance.toLocaleString()}` : '—'}
+                  <td className="py-2.5 px-3.5 text-right font-mono font-black text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                    {txn.runningBalance !== undefined ? formatCurrencyINR(txn.runningBalance) : '—'}
                   </td>
 
                   {/* Status */}

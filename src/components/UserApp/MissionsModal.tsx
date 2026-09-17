@@ -5,7 +5,7 @@ import {
   Gift, 
   Calendar, 
   CheckCircle2, 
-  Sparkles, 
+  Zap, 
   Users, 
   TrendingUp, 
   ArrowRight 
@@ -124,10 +124,10 @@ export const MissionsModal: React.FC<Props> = ({ isOpen, onClose, onOpenInvite }
           <button
             onClick={handleClaim}
             disabled={checkedToday}
-            className={`w-full py-3 rounded-xl font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all ${
+            className={`w-full py-3 rounded-xl text-sm flex items-center justify-center space-x-2 transition-all cursor-pointer ${
               checkedToday
-                ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
-                : 'bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white shadow-red-600/30 active:scale-98'
+                ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700 font-bold'
+                : 'btn-chamko bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 text-white font-black shadow-xl shadow-orange-500/40 active:scale-98'
             }`}
           >
             {checkedToday ? (
@@ -137,7 +137,7 @@ export const MissionsModal: React.FC<Props> = ({ isOpen, onClose, onOpenInvite }
               </>
             ) : (
               <>
-                <Sparkles className="w-4 h-4 text-amber-300" />
+                <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
                 <span>Sign in Today & Claim ₹{settings.dailyCheckinReward}</span>
               </>
             )}

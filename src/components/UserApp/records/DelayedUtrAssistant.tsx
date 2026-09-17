@@ -58,7 +58,7 @@ export const DelayedUtrAssistant: React.FC<Props> = ({
       } else {
         setMatchedTxn(null);
         sounds.playError();
-        onNotify('UTR reference not yet registered in gateway node.', 'error');
+        onNotify('UTR reference not yet registered in banking gateway.', 'error');
       }
     }, 600);
   };

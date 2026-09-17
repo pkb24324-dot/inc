@@ -7,7 +7,6 @@ import {
   Trash2, 
   Check, 
   X, 
-  Sparkles, 
   Clock, 
   Radio, 
   Tag, 

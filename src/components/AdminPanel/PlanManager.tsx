@@ -7,7 +7,6 @@ import {
   Trash2, 
   Check, 
   X, 
-  Star, 
   TrendingUp, 
   Eye, 
   EyeOff,
@@ -25,7 +24,7 @@ export const PlanManager: React.FC = () => {
   // New Plan form state
   const [name, setName] = useState('');
   const [category, setCategory] = useState<PlanCategory>('flash');
-  const [badge, setBadge] = useState('⚡ Flash 1 Min');
+  const [badge, setBadge] = useState('⚡ Flash 1 Minute');
   const [price, setPrice] = useState<number>(500);
   const [dailyIncome, setDailyIncome] = useState<number>(650);
   const [cycleUnit, setCycleUnit] = useState<CycleUnit>('minute');
@@ -71,7 +70,7 @@ export const PlanManager: React.FC = () => {
   const getDurationLabel = (p: InvestmentPlan) => {
     if (p.cycleUnit === 'minute') {
       const m = p.cycleDuration || 1;
-      return m === 1 ? '1 Min' : `${m} Mins`;
+      return m === 1 ? '1 Minute' : `${m} Minutes`;
     }
     if (p.cycleUnit === 'hour') {
       const h = p.cycleDuration || 1;
@@ -164,7 +163,7 @@ export const PlanManager: React.FC = () => {
                       if (val === 'flash') {
                         setCycleUnit('minute');
                         setCycleDuration(1);
-                        setBadge('⚡ 1-Min Return');
+                        setBadge('⚡ 1-Minute Return');
                       } else {
                         setCycleUnit('day');
                         setCycleDuration(5);
@@ -173,7 +172,7 @@ export const PlanManager: React.FC = () => {
                     }}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
                   >
-                    <option value="flash">⚡ Flash Plan (1m - 1h)</option>
+                    <option value="flash">⚡ Flash Plan (1 Minute - 1 Hour)</option>
                     <option value="normal">Normal Plan</option>
                     <option value="vip">VIP Plan</option>
                     <option value="high_return">24H High Return</option>
@@ -206,7 +205,7 @@ export const PlanManager: React.FC = () => {
                     }}
                     className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
                   >
-                    <option value="minute">Minute(s) (1m - 59m)</option>
+                    <option value="minute">Minute(s) (1 to 59 Minutes)</option>
                     <option value="hour">Hour(s) (1h)</option>
                     <option value="day">Day(s)</option>
                   </select>

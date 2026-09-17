@@ -15,7 +15,6 @@ import {
   Percent,
   Filter,
   CheckCircle2,
-  Sparkles,
   Layers,
   Flame,
   Download,
@@ -28,17 +27,36 @@ import {
 import { sounds } from '../../utils/audio';
 
 export const AffiliateManager: React.FC = () => {
-  const { allUsers, settings, saveSettings, adjustUserBalance, toggleUserFrozen, showNotification, theme } = useApp();
+  const { 
+    allUsers, 
+    settings, 
+    saveSettings, 
+    adjustUserBalance, 
+    toggleUserFrozen, 
+    showNotification, 
+    theme,
+    triggerGlobalDividendRun,
+    triggerGlobalCommissionRebateRun,
+    distributePromoterAirdrop
+  } = useApp();
   const isLight = theme === 'light';
 
   const [l1Percent, setL1Percent] = useState<number>(settings.referralL1Percent || 10);
   const [l2Percent, setL2Percent] = useState<number>(settings.referralL2Percent || 5);
   const [l3Percent, setL3Percent] = useState<number>(settings.referralL3Percent || 2);
+  const [commissionMultiplier, setCommissionMultiplier] = useState<number>(settings.commissionMultiplier || 1.0);
+  const [incomeMultiplier, setIncomeMultiplier] = useState<number>(settings.incomeMultiplier || 1.0);
+  const [promoterTierBonusEnabled, setPromoterTierBonusEnabled] = useState<boolean>(settings.promoterTierBonusEnabled ?? true);
+  
+  const [airdropAmount, setAirdropAmount] = useState<number>(250);
+  const [airdropMinReferrals, setAirdropMinReferrals] = useState<number>(3);
+  const [isExecutingRun, setIsExecutingRun] = useState<string | null>(null);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLeaderId, setSelectedLeaderId] = useState<string | null>(allUsers[0]?.id || null);
   const [selectedLeaderTier, setSelectedLeaderTier] = useState<1 | 2 | 3>(1);
   const [adminViewMode, setAdminViewMode] = useState<'grid' | 'tree'>('grid');
-  const [expandedAdminNodes, setExpandedAdminNodes] = useState<Record<string, boolean>>({});
+  const [expandedAdminTrees, setExpandedAdminTrees] = useState<Record<string, boolean>>({});
 
   // Bonus modal state
   const [bonusModalUser, setBonusModalUser] = useState<string | null>(null);
@@ -96,8 +114,12 @@ export const AffiliateManager: React.FC = () => {
       referralL1Percent: Number(l1Percent),
       referralL2Percent: Number(l2Percent),
       referralL3Percent: Number(l3Percent),
+      commissionMultiplier: Number(commissionMultiplier),
+      incomeMultiplier: Number(incomeMultiplier),
+      promoterTierBonusEnabled: Boolean(promoterTierBonusEnabled),
     });
     sounds.playSuccess();
+    showNotification('Affiliate rates and multipliers updated successfully!', 'success');
   };
 
   const handleInjectBonus = (e: React.FormEvent) => {
@@ -149,11 +171,11 @@ export const AffiliateManager: React.FC = () => {
     return { inactiveRatio: ratio, sybilRisk, zeroRechargeCount: zeroRecharge.length, totalSubs: allSubs.length };
   }, [selectedLeader, leaderL1, leaderL2, leaderL3]);
 
-  const toggleAdminTreeNode = (nodeId: string) => {
+  const toggleAdminTree = (userId: string) => {
     sounds.playClick();
-    setExpandedAdminNodes(prev => ({
+    setExpandedAdminTrees(prev => ({
       ...prev,
-      [nodeId]: !prev[nodeId]
+      [userId]: !prev[userId]
     }));
   };
 
@@ -345,6 +367,75 @@ export const AffiliateManager: React.FC = () => {
               />
             </div>
 
+            {/* Advanced Dynamic Multipliers */}
+            <div className={`space-y-2 p-3 rounded-2xl border ${
+              isLight ? 'bg-indigo-50/50 border-indigo-200' : 'bg-indigo-950/20 border-indigo-800/40'
+            }`}>
+              <div className="flex items-center justify-between font-bold">
+                <span className="text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                  <Percent className="w-3.5 h-3.5" />
+                  Commission Multiplier
+                </span>
+                <span className="font-mono font-black text-indigo-600 dark:text-indigo-400">{commissionMultiplier}x</span>
+              </div>
+              <p className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                Global scale factor applied to all L1, L2, L3 referral rewards
+              </p>
+              <input
+                type="range"
+                min="0.5"
+                max="3.0"
+                step="0.1"
+                value={commissionMultiplier}
+                onChange={(e) => setCommissionMultiplier(Number(e.target.value))}
+                className="w-full accent-indigo-600 mt-1 cursor-pointer"
+              />
+            </div>
+
+            <div className={`space-y-2 p-3 rounded-2xl border ${
+              isLight ? 'bg-emerald-50/50 border-emerald-200' : 'bg-emerald-950/20 border-emerald-800/40'
+            }`}>
+              <div className="flex items-center justify-between font-bold">
+                <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  Daily Income Multiplier
+                </span>
+                <span className="font-mono font-black text-emerald-600 dark:text-emerald-400">{incomeMultiplier}x</span>
+              </div>
+              <p className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                Global surge factor for investment daily profits and automated credits
+              </p>
+              <input
+                type="range"
+                min="0.5"
+                max="3.0"
+                step="0.1"
+                value={incomeMultiplier}
+                onChange={(e) => setIncomeMultiplier(Number(e.target.value))}
+                className="w-full accent-emerald-600 mt-1 cursor-pointer"
+              />
+            </div>
+
+            {/* Elite Promoter Bonus Switch */}
+            <div className={`p-3 rounded-2xl border flex items-center justify-between ${
+              isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
+            }`}>
+              <div>
+                <span className={`text-[11px] font-bold block ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>
+                  Elite Agent Tier Boost
+                </span>
+                <span className={`text-[10px] block ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                  +2% L1 (15+ refs), +3% L1 (30+ refs)
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={promoterTierBonusEnabled}
+                onChange={(e) => setPromoterTierBonusEnabled(e.target.checked)}
+                className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
+              />
+            </div>
+
             {/* Quick Strategy Presets */}
             <div className="space-y-1.5 pt-1">
               <span className={`text-[11px] font-bold block ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
@@ -391,9 +482,116 @@ export const AffiliateManager: React.FC = () => {
               type="submit"
               className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/30 transition-all active:scale-95"
             >
-              Update Commission Splits
+              Update Commission & Profit Rates
             </button>
           </form>
+
+          {/* Global Automation & Batch Settlement Control Station */}
+          <div className={`pt-4 border-t space-y-3 ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
+            <div className="flex items-center space-x-1.5">
+              <Flame className="w-4 h-4 text-rose-500 animate-pulse" />
+              <h4 className={`font-black text-xs uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                Global Financial Engine Triggers
+              </h4>
+            </div>
+            <p className={`text-[11px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+              One-click batch runs to disburse production dividends or flush pending rebates across the entire platform.
+            </p>
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsExecutingRun('dividend');
+                  setTimeout(() => {
+                    triggerGlobalDividendRun();
+                    setIsExecutingRun(null);
+                  }, 400);
+                }}
+                disabled={isExecutingRun !== null}
+                className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-all flex items-center justify-between"
+              >
+                <span className="flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  <span>Run Global Dividend Settlement</span>
+                </span>
+                <span className="text-[10px] bg-emerald-700/60 px-2 py-0.5 rounded-md font-mono">
+                  {settings.incomeMultiplier || 1.0}x
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsExecutingRun('rebate');
+                  setTimeout(() => {
+                    triggerGlobalCommissionRebateRun();
+                    setIsExecutingRun(null);
+                  }, 400);
+                }}
+                disabled={isExecutingRun !== null}
+                className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-all flex items-center justify-between"
+              >
+                <span className="flex items-center gap-1.5">
+                  <DollarSign className="w-3.5 h-3.5" />
+                  <span>Flush All Pending Agency Rebates</span>
+                </span>
+                <span className="text-[10px] bg-blue-700/60 px-2 py-0.5 rounded-md">
+                  Auto-Disburse
+                </span>
+              </button>
+            </div>
+
+            {/* Promoter Cash Airdrop Tool */}
+            <div className={`p-3 rounded-2xl border space-y-2.5 ${
+              isLight ? 'bg-amber-50/50 border-amber-200' : 'bg-amber-950/20 border-amber-800/40'
+            }`}>
+              <div className="flex items-center justify-between font-bold text-xs text-amber-700 dark:text-amber-400">
+                <span className="flex items-center gap-1.5">
+                  <Gift className="w-3.5 h-3.5" />
+                  Promoter Cash Airdrop
+                </span>
+                <span className="font-mono">₹{airdropAmount}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <label className={`text-[10px] font-bold block ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Amount (₹)</label>
+                  <input
+                    type="number"
+                    min="50"
+                    step="50"
+                    value={airdropAmount}
+                    onChange={(e) => setAirdropAmount(Number(e.target.value))}
+                    className={`w-full px-2 py-1 rounded-lg text-xs font-mono font-bold border ${
+                      isLight ? 'bg-white border-slate-300' : 'bg-slate-900 border-slate-700 text-white'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className={`text-[10px] font-bold block ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Min Referrals</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={airdropMinReferrals}
+                    onChange={(e) => setAirdropMinReferrals(Number(e.target.value))}
+                    className={`w-full px-2 py-1 rounded-lg text-xs font-mono font-bold border ${
+                      isLight ? 'bg-white border-slate-300' : 'bg-slate-900 border-slate-700 text-white'
+                    }`}
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  distributePromoterAirdrop(airdropAmount, airdropMinReferrals);
+                }}
+                className="w-full py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-sm transition-all"
+              >
+                Disburse Festival Airdrop
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Center & Right: Promoters Leaderboard & Team Tree Inspector */}
@@ -589,7 +787,7 @@ export const AffiliateManager: React.FC = () => {
                       </span>
                     </div>
                     <p className={`text-[11px] mt-0.5 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
-                      Total Network Nodes: <b>{leaderRiskMetrics.totalSubs}</b> • Zero-Recharge Accounts: <b>{leaderRiskMetrics.zeroRechargeCount}</b> • Active Depositors: <b>{leaderRiskMetrics.totalSubs - leaderRiskMetrics.zeroRechargeCount}</b>
+                      Total Network Members: <b>{leaderRiskMetrics.totalSubs}</b> • Zero-Recharge Accounts: <b>{leaderRiskMetrics.zeroRechargeCount}</b> • Active Depositors: <b>{leaderRiskMetrics.totalSubs - leaderRiskMetrics.zeroRechargeCount}</b>
                     </p>
                   </div>
                 </div>
@@ -660,7 +858,7 @@ export const AffiliateManager: React.FC = () => {
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                       {currentTierUsers.map(d => {
-                        const commissionYield = Math.round((d.totalRecharge || 0) * (currentTierRate / 100));
+                        const commissionProfit = Math.round((d.totalRecharge || 0) * (currentTierRate / 100));
                         return (
                           <div 
                             key={d.id} 
@@ -682,7 +880,7 @@ export const AffiliateManager: React.FC = () => {
                             </div>
                             <div className="text-right font-mono">
                               <span className="text-emerald-600 dark:text-emerald-400 font-bold block">
-                                +₹{commissionYield.toLocaleString()}
+                                +₹{commissionProfit.toLocaleString()}
                               </span>
                               <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
                                 Recharge: ₹{(d.totalRecharge || 0).toLocaleString()}
@@ -731,7 +929,7 @@ export const AffiliateManager: React.FC = () => {
                     <div className="space-y-2 pl-3 border-l-2 border-dashed border-indigo-300 dark:border-indigo-800">
                       {leaderL1.map(l1 => {
                         const l1Children = leaderL2.filter(sub => sub.referredBy === l1.referralCode);
-                        const isExpanded = !!expandedAdminNodes[l1.id];
+                        const isExpanded = !!expandedAdminTrees[l1.id];
                         return (
                           <div key={l1.id} className="space-y-1.5">
                             <div className={`p-3 rounded-2xl border flex items-center justify-between transition-all ${
@@ -739,7 +937,7 @@ export const AffiliateManager: React.FC = () => {
                             }`}>
                               <div className="flex items-center space-x-2">
                                 <button
-                                  onClick={() => toggleAdminTreeNode(l1.id)}
+                                  onClick={() => toggleAdminTree(l1.id)}
                                   className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs transition-colors ${
                                     isLight ? 'bg-slate-200 hover:bg-slate-300 text-slate-700' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                                   }`}
@@ -764,7 +962,7 @@ export const AffiliateManager: React.FC = () => {
                                     ₹{(l1.totalRecharge || 0).toLocaleString()}
                                   </span>
                                   <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-                                    Yield: ₹{Math.round((l1.totalRecharge || 0) * (l1Percent / 100)).toLocaleString()}
+                                    Commission: ₹{Math.round((l1.totalRecharge || 0) * (l1Percent / 100)).toLocaleString()}
                                   </span>
                                 </div>
                                 <button
@@ -809,7 +1007,7 @@ export const AffiliateManager: React.FC = () => {
                                             ₹{(l2.totalRecharge || 0).toLocaleString()}
                                           </span>
                                           <span className={`text-[10px] ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>
-                                            Yield: ₹{Math.round((l2.totalRecharge || 0) * (l2Percent / 100)).toLocaleString()}
+                                            Commission: ₹{Math.round((l2.totalRecharge || 0) * (l2Percent / 100)).toLocaleString()}
                                           </span>
                                         </div>
                                       </div>

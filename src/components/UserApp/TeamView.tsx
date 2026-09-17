@@ -10,9 +10,7 @@ import {
   UserCheck, 
   DollarSign,
   Gift,
-  Sparkles,
   MessageCircle,
-  Calculator,
   ChevronRight,
   Zap,
   ShieldCheck,
@@ -32,6 +30,7 @@ import {
   Send,
   X
 } from 'lucide-react';
+import { WhatsAppIcon, TelegramIcon } from '../common/SocialIcons';
 import { sounds } from '../../utils/audio';
 
 export const TeamView: React.FC = () => {
@@ -59,13 +58,8 @@ export const TeamView: React.FC = () => {
   const [downlineViewMode, setDownlineViewMode] = useState<'roster' | 'tree'>('roster');
   const [posterTheme, setPosterTheme] = useState<'gold' | 'neon' | 'emerald'>('gold');
   const [customPosterHeadline, setCustomPosterHeadline] = useState('Official VIP Treasury Invitation');
-  const [expandedTreeNodes, setExpandedTreeNodes] = useState<Record<string, boolean>>({});
+  const [expandedTreeMembers, setExpandedTreeMembers] = useState<Record<string, boolean>>({});
   const [salaryClaimedToday, setSalaryClaimedToday] = useState(false);
-
-  // Commission Projection Calculator State
-  const [calcInvites, setCalcInvites] = useState<number>(6);
-  const [calcSubRatio, setCalcSubRatio] = useState<number>(3);
-  const [calcAvgInvestment, setCalcAvgInvestment] = useState<number>(2500);
 
   const referralLink = `${window.location.origin}/?ref=${currentUser.referralCode}`;
   const shareText = `🚀 Join me on ${settings.platformName}! Invest in high-return production assets with guaranteed daily returns. Use my VIP invitation code ${currentUser.referralCode} to claim instant ₹50 welcome cash: ${referralLink}`;
@@ -201,39 +195,24 @@ export const TeamView: React.FC = () => {
   const nudgeMemberWhatsApp = (member: typeof allUsers[0]) => {
     sounds.playClick();
     const cleanPhone = member.phone.replace(/\D/g, '');
-    const msg = `Hi ${member.name}! Glad to have you on my ${settings.platformName} team. Activate your daily returns plan or check the flash yield plans today! Here is the platform portal: ${referralLink}`;
+    const msg = `Hi ${member.name}! Glad to have you on my ${settings.platformName} team. Activate your daily returns plan or check the flash profit plans today! Here is the platform portal: ${referralLink}`;
     window.open(`https://api.whatsapp.com/send?phone=91${cleanPhone}&text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  const toggleTreeNode = (nodeId: string) => {
+  const toggleTreeMember = (memberId: string) => {
     sounds.playClick();
-    setExpandedTreeNodes(prev => ({
+    setExpandedTreeMembers(prev => ({
       ...prev,
-      [nodeId]: !prev[nodeId]
+      [memberId]: !prev[memberId]
     }));
   };
-
-  // Calculator Projections
-  const l1Rate = settings.referralL1Percent / 100;
-  const l2Rate = settings.referralL2Percent / 100;
-  const l3Rate = settings.referralL3Percent / 100;
-
-  const projL1Count = calcInvites;
-  const projL2Count = calcInvites * calcSubRatio;
-  const projL3Count = calcInvites * calcSubRatio * 2;
-
-  const projL1Earnings = Math.round(projL1Count * calcAvgInvestment * l1Rate);
-  const projL2Earnings = Math.round(projL2Count * calcAvgInvestment * l2Rate);
-  const projL3Earnings = Math.round(projL3Count * calcAvgInvestment * l3Rate);
-  const projTotalInstant = projL1Earnings + projL2Earnings + projL3Earnings;
-  const projMonthlyRun = Math.round(projTotalInstant * 3.5);
 
   const claimable = currentUser.claimableCommission !== undefined ? currentUser.claimableCommission : 850;
 
   // Real-time Downline Commission Activity Stream
   const liveCommissionEvents = [
-    { name: 'Priya S.', level: 'Level 1', action: 'Purchased Fevicol SH Asset', amount: 360, time: '2 mins ago' },
-    { name: 'Karan J.', level: 'Level 2', action: 'Sub-agent Recharge Settled', amount: 375, time: '14 mins ago' },
+    { name: 'Priya S.', level: 'Level 1', action: 'Purchased Fevicol SH Asset', amount: 360, time: '2 Minutes ago' },
+    { name: 'Karan J.', level: 'Level 2', action: 'Sub-agent Recharge Settled', amount: 375, time: '14 Minutes ago' },
     { name: 'Vikas G.', level: 'Level 1', action: 'Activated Rapid Scalp Bond', amount: 380, time: '1 hour ago' },
     { name: 'Ananya B.', level: 'Level 3', action: 'Downline Polymer Activation', amount: 120, time: '3 hours ago' },
   ];
@@ -251,11 +230,11 @@ export const TeamView: React.FC = () => {
         
         <div className="flex justify-between items-start relative z-10">
           <div>
-            <div className="text-xs font-black uppercase tracking-wider flex items-center space-x-1.5 text-indigo-200">
-              <ShieldCheck className="w-4 h-4 text-indigo-300" />
+            <div className="text-[11px] font-bold uppercase tracking-wider flex items-center space-x-1.5 text-indigo-200">
+              <ShieldCheck className="w-3.5 h-3.5 text-indigo-300" />
               <span>Verified 3-Tier Affiliate System</span>
             </div>
-            <h2 className="text-2xl font-black text-white font-['Outfit'] mt-1">
+            <h2 className="text-lg sm:text-xl font-bold text-white font-['Outfit'] mt-1">
               Affiliate & Team Network
             </h2>
             <p className="text-xs text-indigo-100/90 mt-0.5">
@@ -332,15 +311,15 @@ export const TeamView: React.FC = () => {
           id="claim-team-commission-btn"
           onClick={handleClaimCommission}
           disabled={claimable <= 0}
-          className={`w-full mt-3 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition-all shadow-md active:scale-95 ${
+          className={`w-full mt-3 py-3 rounded-xl text-xs flex items-center justify-center space-x-2 transition-all shadow-md active:scale-95 cursor-pointer ${
             claimable > 0
-              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-600/30'
+              ? 'btn-chamko-emerald text-white font-black shadow-lg shadow-emerald-600/30'
               : isLight 
                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200' 
                 : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
           }`}
         >
-          <Sparkles className="w-4 h-4" />
+          <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
           <span>
             {claimable > 0 ? `Claim ₹${claimable.toLocaleString()} Commission To Balance` : 'All Rebates Cleared'}
           </span>
@@ -353,14 +332,14 @@ export const TeamView: React.FC = () => {
       }`}>
         <div className="flex items-center justify-between">
           <div>
-            <span className={`text-xs font-black uppercase tracking-wider block ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>
+            <span className={`text-[11px] font-black uppercase tracking-wider block ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>
               Your Unique Referral Code
             </span>
-            <span className={`text-[11px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+            <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
               Share with friends to build your 3-level agency network
             </span>
           </div>
-          <span className={`font-mono text-xl font-black px-3.5 py-1 rounded-xl border ${
+          <span className={`font-mono text-base font-black px-3 py-1 rounded-xl border ${
             isLight 
               ? 'bg-amber-50 text-amber-700 border-amber-300' 
               : 'bg-amber-400/10 text-amber-400 border-amber-400/30'
@@ -373,7 +352,7 @@ export const TeamView: React.FC = () => {
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={copyCode}
-            className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition-all border active:scale-95 ${
+            className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition-all border active:scale-95 cursor-pointer ${
               isLight 
                 ? 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200' 
                 : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
@@ -385,7 +364,7 @@ export const TeamView: React.FC = () => {
           
           <button
             onClick={copyLink}
-            className="py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center justify-center space-x-1.5 shadow-md shadow-blue-600/30 active:scale-95 transition-all"
+            className="py-2.5 px-3 rounded-xl btn-chamko-blue text-white text-xs font-black flex items-center justify-center space-x-1.5 shadow-md shadow-blue-600/30 active:scale-95 transition-all cursor-pointer"
           >
             {copiedLink ? <Check className="w-4 h-4 text-emerald-300" /> : <Share2 className="w-4 h-4" />}
             <span>{copiedLink ? 'Link Copied!' : 'Copy Share Link'}</span>
@@ -396,25 +375,17 @@ export const TeamView: React.FC = () => {
         <div className={`grid grid-cols-2 gap-2 pt-2 border-t ${isLight ? 'border-slate-100' : 'border-slate-800'}`}>
           <button
             onClick={shareWhatsApp}
-            className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition-colors border active:scale-95 ${
-              isLight 
-                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200' 
-                : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-            }`}
+            className="py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center space-x-2 transition-all active:scale-95 cursor-pointer btn-chamko bg-[#25D366] hover:bg-[#20ba59] text-white shadow-md shadow-[#25D366]/30"
           >
-            <MessageCircle className="w-4 h-4 text-emerald-600" />
+            <WhatsAppIcon className="w-4 h-4 text-white" />
             <span>Share to WhatsApp</span>
           </button>
           
           <button
             onClick={shareTelegram}
-            className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition-colors border active:scale-95 ${
-              isLight 
-                ? 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-200' 
-                : 'bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border-sky-500/30'
-            }`}
+            className="py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center space-x-2 transition-all active:scale-95 cursor-pointer btn-chamko bg-[#229ED9] hover:bg-[#1f8ec3] text-white shadow-md shadow-[#229ED9]/30"
           >
-            <Share2 className="w-4 h-4 text-sky-600" />
+            <TelegramIcon className="w-4 h-4 text-white" />
             <span>Share to Telegram</span>
           </button>
         </div>
@@ -492,110 +463,6 @@ export const TeamView: React.FC = () => {
             <span className={`text-[10px] block font-semibold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
               {level3Users.length} Members (₹{l3TotalRecharge.toLocaleString()})
             </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Interactive Agency Commission & Salary Calculator */}
-      <div className={`rounded-3xl p-4 shadow-sm border transition-all space-y-3.5 ${
-        isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'
-      }`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-7 h-7 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center">
-              <Calculator className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className={`font-bold text-xs ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                Interactive Agency Profit Simulator
-              </h3>
-              <p className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-                Simulate potential direct & passive 3-tier returns
-              </p>
-            </div>
-          </div>
-          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full">
-            Real-Time Projections
-          </span>
-        </div>
-
-        {/* Dynamic Sliders */}
-        <div className={`p-3.5 rounded-2xl border space-y-3.5 ${
-          isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
-        }`}>
-          <div>
-            <div className="flex justify-between text-xs mb-1.5">
-              <span className={isLight ? 'text-slate-600 font-medium' : 'text-slate-400'}>
-                Direct L1 Invites:
-              </span>
-              <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{calcInvites} Members</span>
-            </div>
-            <input
-              type="range"
-              min="1"
-              max="50"
-              value={calcInvites}
-              onChange={(e) => setCalcInvites(Number(e.target.value))}
-              className="w-full accent-indigo-600 h-1.5 rounded-lg cursor-pointer"
-            />
-          </div>
-
-          <div>
-            <div className="flex justify-between text-xs mb-1.5">
-              <span className={isLight ? 'text-slate-600 font-medium' : 'text-slate-400'}>
-                Sub-tier Multiplier (Each Invites):
-              </span>
-              <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{calcSubRatio} People</span>
-            </div>
-            <input
-              type="range"
-              min="1"
-              max="5"
-              value={calcSubRatio}
-              onChange={(e) => setCalcSubRatio(Number(e.target.value))}
-              className="w-full accent-blue-600 h-1.5 rounded-lg cursor-pointer"
-            />
-          </div>
-
-          <div>
-            <div className="flex justify-between text-xs mb-1.5">
-              <span className={isLight ? 'text-slate-600 font-medium' : 'text-slate-400'}>
-                Average Investment Amount:
-              </span>
-              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">₹{calcAvgInvestment.toLocaleString()}</span>
-            </div>
-            <input
-              type="range"
-              min="700"
-              max="20000"
-              step="500"
-              value={calcAvgInvestment}
-              onChange={(e) => setCalcAvgInvestment(Number(e.target.value))}
-              className="w-full accent-emerald-600 h-1.5 rounded-lg cursor-pointer"
-            />
-          </div>
-        </div>
-
-        {/* Projected Calculated Outcomes */}
-        <div className="grid grid-cols-2 gap-2 text-center">
-          <div className={`p-3 rounded-2xl border ${
-            isLight ? 'bg-emerald-50/60 border-emerald-200' : 'bg-slate-950 border-slate-800'
-          }`}>
-            <span className={`text-[10px] block ${isLight ? 'text-emerald-800' : 'text-slate-400'}`}>Instant Direct Commission</span>
-            <span className="font-mono font-black text-lg text-emerald-600 dark:text-emerald-400">
-              ₹{projTotalInstant.toLocaleString()}
-            </span>
-            <span className="text-[9px] text-slate-400 block mt-0.5">L1+L2+L3 combined</span>
-          </div>
-
-          <div className={`p-3 rounded-2xl border ${
-            isLight ? 'bg-amber-50/60 border-amber-200' : 'bg-slate-950 border-slate-800'
-          }`}>
-            <span className={`text-[10px] block ${isLight ? 'text-amber-800' : 'text-slate-400'}`}>Estimated Monthly Salary Run</span>
-            <span className="font-mono font-black text-lg text-amber-600 dark:text-amber-400">
-              ₹{projMonthlyRun.toLocaleString()}
-            </span>
-            <span className="text-[9px] text-slate-400 block mt-0.5">With ongoing repurchases</span>
           </div>
         </div>
       </div>
@@ -686,7 +553,7 @@ export const TeamView: React.FC = () => {
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4" />
+              <Gift className="w-4 h-4" />
               <span>
                 {currentSalaryTier 
                   ? `Claim Today's ₹${currentSalaryTier.dailySalary} Daily Executive Salary` 
@@ -803,7 +670,7 @@ export const TeamView: React.FC = () => {
                       onClick={() => handleClaimMilestone(idx, m.reward, m.title)}
                       className="py-1 px-3 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-600/20 active:scale-95 flex items-center space-x-1"
                     >
-                      <Sparkles className="w-3 h-3" />
+                      <Gift className="w-3 h-3" />
                       <span>Claim ₹{m.reward.toLocaleString()} Now</span>
                     </button>
                   ) : (
@@ -1004,10 +871,10 @@ export const TeamView: React.FC = () => {
                         <button
                           onClick={() => nudgeMemberWhatsApp(m)}
                           title="Nudge & Guide via WhatsApp"
-                          className="p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 active:scale-95 transition-all flex items-center space-x-1"
+                          className="p-2 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] border border-[#25D366]/30 active:scale-95 transition-all flex items-center space-x-1.5"
                         >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          <span className="text-[10px] font-bold hidden sm:inline">Nudge</span>
+                          <WhatsAppIcon className="w-3.5 h-3.5" />
+                          <span className="text-[10px] font-bold hidden sm:inline">WhatsApp</span>
                         </button>
                       </div>
                     </div>
@@ -1019,7 +886,7 @@ export const TeamView: React.FC = () => {
         ) : (
           /* --- INTERACTIVE 3-TIER NETWORK HIERARCHY TREE --- */
           <div className="space-y-3 pt-1">
-            {/* Root Node: You */}
+            {/* Apex Sponsor: You */}
             <div className={`p-3.5 rounded-2xl border ${
               isLight ? 'bg-indigo-50/70 border-indigo-200' : 'bg-indigo-950/30 border-indigo-500/30'
             }`}>
@@ -1046,7 +913,7 @@ export const TeamView: React.FC = () => {
               </div>
             </div>
 
-            {/* Level 1 Nodes Branch */}
+            {/* Level 1 Members Branch */}
             <div className="pl-4 border-l-2 border-dashed border-indigo-300 dark:border-indigo-800 space-y-2">
               <div className="flex items-center justify-between text-xs font-bold text-slate-400 pb-1">
                 <span>Tier 1 Direct Recruits ({level1Users.length}) • {settings.referralL1Percent}% Rebate</span>
@@ -1059,7 +926,7 @@ export const TeamView: React.FC = () => {
                 </div>
               ) : (
                 level1Users.map((l1) => {
-                  const isExpanded = !!expandedTreeNodes[l1.id];
+                  const isExpanded = !!expandedTreeMembers[l1.id];
                   // Downlines of this L1 user (which are L2 to current user)
                   const l1DirectSubs = allUsers.filter(u => u.referredBy === l1.referralCode);
                   const subTurnover = l1DirectSubs.reduce((sum, u) => sum + (u.totalRecharge || 0), 0);
@@ -1101,7 +968,7 @@ export const TeamView: React.FC = () => {
 
                             {l1DirectSubs.length > 0 && (
                               <button
-                                onClick={() => toggleTreeNode(l1.id)}
+                                onClick={() => toggleTreeMember(l1.id)}
                                 className={`p-1.5 rounded-lg border text-xs transition-all ${
                                   isExpanded 
                                     ? 'bg-indigo-600 text-white border-indigo-600' 
@@ -1114,10 +981,10 @@ export const TeamView: React.FC = () => {
 
                             <button
                               onClick={() => nudgeMemberWhatsApp(l1)}
-                              className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20"
+                              className="p-1.5 rounded-lg bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] border border-[#25D366]/30"
                               title="WhatsApp Nudge"
                             >
-                              <MessageCircle className="w-3.5 h-3.5" />
+                              <WhatsAppIcon className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
@@ -1162,9 +1029,10 @@ export const TeamView: React.FC = () => {
                                   )}
                                   <button
                                     onClick={() => nudgeMemberWhatsApp(l2)}
-                                    className="p-1 rounded-lg bg-emerald-500/10 text-emerald-500"
+                                    className="p-1 rounded-lg bg-[#25D366]/15 text-[#25D366]"
+                                    title="WhatsApp Nudge"
                                   >
-                                    <MessageCircle className="w-3 h-3" />
+                                    <WhatsAppIcon className="w-3 h-3" />
                                   </button>
                                 </div>
                               </div>
@@ -1290,7 +1158,7 @@ export const TeamView: React.FC = () => {
                     {settings.platformName}
                   </h4>
                   <p className="text-[11px] text-white/80 mt-0.5">
-                    High Yield Production Assets
+                    High Return Daily Profits
                   </p>
                 </div>
 
@@ -1319,9 +1187,9 @@ export const TeamView: React.FC = () => {
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <button
                   onClick={shareWhatsApp}
-                  className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-600/30"
+                  className="py-2.5 px-3 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-md shadow-[#25D366]/30"
                 >
-                  <MessageCircle className="w-3.5 h-3.5" />
+                  <WhatsAppIcon className="w-3.5 h-3.5" />
                   <span>WhatsApp</span>
                 </button>
                 <button

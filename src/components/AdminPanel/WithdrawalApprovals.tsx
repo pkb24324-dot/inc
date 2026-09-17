@@ -22,9 +22,14 @@ import {
   Send,
   RefreshCw,
   Eye,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Wallet,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
+import { SunpaysLogo } from '../Sunpays/SunpaysLogo';
+import { sendSunpaysPayout, fetchSunpaysBalance } from '../../utils/sunpays';
 
 export const WithdrawalApprovals: React.FC = () => {
   const { 
@@ -35,11 +40,19 @@ export const WithdrawalApprovals: React.FC = () => {
     batchRejectWithdrawals,
     exportDataToCsv,
     allUsers,
+    settings,
+    showNotification,
     theme
   } = useApp();
 
   const isLight = theme === 'light';
 
+  const [layoutMode, setLayoutMode] = useState<'cards' | 'table'>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return 'cards';
+    }
+    return 'table';
+  });
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed' | 'rejected'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [highValueOnly, setHighValueOnly] = useState(false);
@@ -52,6 +65,73 @@ export const WithdrawalApprovals: React.FC = () => {
   // Single Approve Modal with Custom IMPS RRN
   const [approveModalTxn, setApproveModalTxn] = useState<any | null>(null);
   const [customRrn, setCustomRrn] = useState('');
+  const [isProcessingSunpays, setIsProcessingSunpays] = useState(false);
+
+  // Live Sunpays Balance
+  const [sunpaysBalance, setSunpaysBalance] = useState<number | null>(null);
+  const [sunpaysUpstream, setSunpaysUpstream] = useState<number | null>(null);
+  const [loadingSunpaysBalance, setLoadingSunpaysBalance] = useState(false);
+
+  const loadSunpaysBalance = async () => {
+    setLoadingSunpaysBalance(true);
+    try {
+      const data = await fetchSunpaysBalance();
+      if (data.balance !== undefined) {
+        setSunpaysBalance(data.balance);
+        if (data.upstream_balance !== undefined) {
+          setSunpaysUpstream(data.upstream_balance);
+        }
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoadingSunpaysBalance(false);
+    }
+  };
+
+  React.useEffect(() => {
+    loadSunpaysBalance();
+  }, []);
+
+  const handleSunpaysInstantPayout = async (txn: any) => {
+    if (!txn) return;
+    setIsProcessingSunpays(true);
+    sounds.playClick();
+
+    const payoutMethod = txn.bankDetails?.upiId ? 'upi' : 'bank';
+    const amountToTransfer = txn.netAmount || txn.amount;
+
+    try {
+      const res = await sendSunpaysPayout({
+        payout_id: `PO_${txn.id}_${Date.now().toString().slice(-4)}`,
+        amount: amountToTransfer,
+        currency: 'INR',
+        method: payoutMethod,
+        beneficiary_name: txn.bankDetails?.accountHolder || txn.userName || 'Beneficiary',
+        beneficiary_account: txn.bankDetails?.upiId || txn.bankDetails?.accountNumber || '',
+        beneficiary_phone: txn.userPhone || '9876543210',
+        ifsc: txn.bankDetails?.ifsc,
+        bank_name: txn.bankDetails?.bankName,
+        notify_url: 'https://ttpay.business/webhook/payout',
+      });
+
+      if (res.success) {
+        const liveUtr = res.data?.utr || `SUN${Date.now().toString().slice(-8)}`;
+        sounds.playCash();
+        approveWithdrawal(txn.id, liveUtr);
+        showNotification(`⚡ Sunpays Payout Dispatched! UTR: ${liveUtr} (Net: ₹${amountToTransfer.toLocaleString()})`, 'success');
+        setApproveModalTxn(null);
+        setSelectedIds(prev => prev.filter(i => i !== txn.id));
+        loadSunpaysBalance();
+      } else {
+        showNotification(res.error || 'Sunpays Payout API returned an error', 'error');
+      }
+    } catch (err: any) {
+      showNotification(err?.message || 'Failed to dispatch Sunpays payout', 'error');
+    } finally {
+      setIsProcessingSunpays(false);
+    }
+  };
 
   const withdrawals = transactions.filter(t => t.type === 'withdrawal');
 
@@ -174,6 +254,49 @@ export const WithdrawalApprovals: React.FC = () => {
         </div>
       </div>
 
+      {/* Sunpays Gateway Treasury Bar */}
+      <div className={`p-4 rounded-3xl border flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+        isLight ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200' : 'bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border-amber-500/30'
+      }`}>
+        <div className="flex items-center space-x-3">
+          <SunpaysLogo />
+          <div>
+            <div className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center space-x-1.5">
+              <span>Sunpays Live Disbursement Payout Gateway</span>
+              <span className="text-[10px] px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono">
+                API ONLINE
+              </span>
+            </div>
+            <div className="text-[11px] text-slate-500 font-mono">
+              Merchant: {settings.sunpaysMerchantId || '353548'} • Rail: UPI / IMPS Payout • ttpay.business
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-4">
+          <div className="text-right">
+            <span className="text-[10px] uppercase tracking-wider text-slate-400 block font-bold">
+              Available Merchant Balance
+            </span>
+            <div className="text-lg font-black text-amber-500 font-mono">
+              {sunpaysBalance !== null ? `₹${sunpaysBalance.toLocaleString()}` : 'Connecting...'}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={loadSunpaysBalance}
+            disabled={loadingSunpaysBalance}
+            className={`p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+              isLight ? 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50' : 'bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700'
+            }`}
+            title="Refresh Sunpays Balance"
+          >
+            <RefreshCw className={`w-4 h-4 ${loadingSunpaysBalance ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+      </div>
+
       {/* Filter & Search Bar */}
       <div className={`p-4 rounded-3xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
         isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900 border-slate-800'
@@ -223,6 +346,36 @@ export const WithdrawalApprovals: React.FC = () => {
               </button>
             ))}
           </div>
+
+          {/* Layout Mode Toggle (Cards vs Table) */}
+          <div className={`flex rounded-xl p-1 border ${
+            isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950 border-slate-800'
+          }`}>
+            <button
+              type="button"
+              onClick={() => setLayoutMode('cards')}
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                layoutMode === 'cards'
+                  ? isLight ? 'bg-white text-amber-600 shadow-xs' : 'bg-amber-500 text-slate-950 font-bold'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+              title="Cards View (Mobile / Tablet Friendly)"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayoutMode('table')}
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                layoutMode === 'table'
+                  ? isLight ? 'bg-white text-amber-600 shadow-xs' : 'bg-amber-500 text-slate-950 font-bold'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+              title="Table View (Desktop Dense)"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -270,7 +423,216 @@ export const WithdrawalApprovals: React.FC = () => {
         </div>
       )}
 
-      {/* Table Container */}
+      {/* Content Display: Mobile/Tablet Cards View OR Dense Table View */}
+      {layoutMode === 'cards' ? (
+        filtered.length === 0 ? (
+          <div className={`p-12 text-center rounded-3xl border ${
+            isLight ? 'bg-white border-slate-200 text-slate-400' : 'bg-slate-900 border-slate-800 text-slate-400'
+          }`}>
+            No withdrawal requests match your filter.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+            {filtered.map((t) => {
+              const isSelected = selectedIds.includes(t.id);
+              const userObj = allUsers.find(u => u.id === t.userId);
+
+              return (
+                <div
+                  key={t.id}
+                  className={`rounded-2xl border p-4 flex flex-col justify-between transition-all ${
+                    isSelected
+                      ? isLight ? 'bg-amber-50/90 border-amber-400 ring-2 ring-amber-500/20' : 'bg-amber-900/20 border-amber-500'
+                      : isLight ? 'bg-white border-slate-200 shadow-xs hover:border-slate-300' : 'bg-slate-900 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  {/* Card Header */}
+                  <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center space-x-1.5 truncate">
+                        <span className="truncate">{t.userName}</span>
+                        {userObj && (
+                          <span className="text-[10px] font-black px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 flex-shrink-0">
+                            VIP {userObj.vipLevel}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-mono">
+                        +91 {t.userPhone}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono truncate">
+                        ID: {t.id}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-1 flex-shrink-0">
+                      <span
+                        className={`inline-flex items-center space-x-1 text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${
+                          t.status === 'completed'
+                            ? isLight ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                            : t.status === 'pending'
+                            ? isLight ? 'bg-amber-100 text-amber-800' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                            : isLight ? 'bg-red-100 text-red-800' : 'bg-red-500/10 text-red-400 border border-red-500/30'
+                        }`}
+                      >
+                        {t.status === 'completed' && <CheckCircle2 className="w-2.5 h-2.5" />}
+                        {t.status === 'pending' && <Clock className="w-2.5 h-2.5 animate-spin" />}
+                        {t.status === 'rejected' && <AlertCircle className="w-2.5 h-2.5" />}
+                        <span>{t.status === 'completed' ? 'Disbursed' : t.status}</span>
+                      </span>
+
+                      {t.status === 'pending' && (
+                        <button
+                          onClick={() => toggleSelectOne(t.id)}
+                          className="p-1 rounded-md text-slate-400 hover:text-amber-500 active:scale-95 cursor-pointer"
+                          title="Select for batch action"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-5 h-5 text-amber-500" />
+                          ) : (
+                            <Square className="w-5 h-5" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Card Body */}
+                  <div className="py-3 space-y-2.5">
+                    {/* Amount */}
+                    <div className="flex items-baseline justify-between">
+                      <div>
+                        <div className="text-xl font-black text-amber-600 dark:text-amber-400 font-mono tracking-tight">
+                          ₹{(t.netAmount || t.amount).toLocaleString()}
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          Net Payout • Gross: ₹{t.amount.toLocaleString()} {t.fee ? `(Fee: ₹${t.fee})` : ''}
+                        </span>
+                      </div>
+                      {t.amount >= 10000 && (
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                          ⚡ Priority Payout
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Bank / UPI Details Card */}
+                    <div className={`p-2.5 rounded-xl border space-y-1.5 ${
+                      isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800/80'
+                    }`}>
+                      {t.bankDetails?.upiId ? (
+                        <div className="flex items-center justify-between">
+                          <div className="min-w-0">
+                            <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">
+                              UPI Virtual Address
+                            </span>
+                            <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400 select-all truncate block">
+                              {t.bankDetails.upiId}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => handleCopy(t.bankDetails!.upiId!)}
+                            className={`p-1.5 rounded-lg border text-xs flex items-center space-x-1 transition-all active:scale-90 flex-shrink-0 cursor-pointer ${
+                              isLight ? 'bg-white border-slate-200 text-slate-700' : 'bg-slate-800 border-slate-700 text-slate-300'
+                            }`}
+                            title="Copy UPI"
+                          >
+                            {copiedText === t.bankDetails.upiId ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-500" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                            <span className="text-[10px] font-bold">Copy</span>
+                          </button>
+                        </div>
+                      ) : t.bankDetails?.accountNumber ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center space-x-1">
+                              <Building2 className="w-3.5 h-3.5 text-amber-500" />
+                              <span>{t.bankDetails.bankName || 'Direct Bank IMPS'}</span>
+                            </span>
+                            <button
+                              onClick={() => handleCopy(t.bankDetails!.accountNumber!)}
+                              className={`p-1 rounded-md border text-xs flex items-center space-x-1 cursor-pointer ${
+                                isLight ? 'bg-white border-slate-200 text-slate-700' : 'bg-slate-800 border-slate-700 text-slate-300'
+                              }`}
+                              title="Copy Account"
+                            >
+                              {copiedText === t.bankDetails.accountNumber ? (
+                                <Check className="w-3 h-3 text-emerald-500" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                              <span className="text-[9px] font-bold">Copy A/C</span>
+                            </button>
+                          </div>
+                          <div className="font-mono text-xs font-bold text-slate-900 dark:text-white select-all">
+                            A/C: {t.bankDetails.accountNumber}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            IFSC: <span className="text-blue-600 dark:text-blue-400 font-bold">{t.bankDetails.ifscCode}</span> • {t.bankDetails.holderName}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">No bank info provided</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                      <span className="font-mono text-[10px]">
+                        Req: {new Date(t.createdAt).toLocaleDateString()} {new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {t.rrn && (
+                        <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                          RRN: {t.rrn}
+                        </span>
+                      )}
+                    </div>
+
+                    {t.rejectionReason && (
+                      <p className="text-[11px] text-red-600 dark:text-red-400 bg-red-500/10 p-2 rounded-lg">
+                        Refunded: {t.rejectionReason}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Card Actions */}
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                    {t.status === 'pending' ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => openApproveModal(t)}
+                          className="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center justify-center space-x-1.5 shadow-md shadow-amber-500/20 active:scale-95 transition-all cursor-pointer"
+                        >
+                          <Send className="w-4 h-4" />
+                          <span>Dispatch</span>
+                        </button>
+                        <button
+                          onClick={() => setRejectModalTxnId(t.id)}
+                          className={`w-full py-2.5 px-3 rounded-xl font-bold text-xs border flex items-center justify-center space-x-1.5 active:scale-95 transition-all cursor-pointer ${
+                            isLight 
+                              ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' 
+                              : 'bg-slate-800 text-red-400 border-red-500/20 hover:bg-red-950/80'
+                          }`}
+                        >
+                          <X className="w-4 h-4" />
+                          <span>Reject</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-slate-400 text-center py-1">
+                        Processed by <span className="font-bold">{t.approvedBy || 'Disbursed'}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      ) : (
+      /* Table Container */
       <div className={`border rounded-3xl overflow-hidden shadow-sm transition-colors ${
         isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'
       }`}>
@@ -474,6 +836,7 @@ export const WithdrawalApprovals: React.FC = () => {
           </table>
         </div>
       </div>
+      )}
 
       {/* Approve & Dispatch Modal with RRN Input */}
       {approveModalTxn && (
@@ -558,7 +921,27 @@ export const WithdrawalApprovals: React.FC = () => {
               </span>
             </div>
 
-            <div className="flex space-x-2 pt-2">
+            {/* One-Click Sunpays Payout API Option */}
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2">
+              <button
+                type="button"
+                disabled={isProcessingSunpays}
+                onClick={() => handleSunpaysInstantPayout(approveModalTxn)}
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 flex items-center justify-center space-x-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+              >
+                <Zap className="w-4 h-4 text-slate-950 fill-current" />
+                <span>
+                  {isProcessingSunpays 
+                    ? 'Signing HMAC-SHA256 & Dispatching via ttpay.business...' 
+                    : `⚡ Auto-Dispatch via Sunpays Payout API (₹${(approveModalTxn.netAmount || approveModalTxn.amount).toLocaleString()})`}
+                </span>
+              </button>
+              <p className="text-[10px] text-center text-slate-400">
+                Calls POST /api/public/v1/payouts with HMAC-SHA256 signature to transfer funds instantly.
+              </p>
+            </div>
+
+            <div className="flex space-x-2 pt-1">
               <button
                 type="button"
                 onClick={() => setApproveModalTxn(null)}
@@ -571,9 +954,11 @@ export const WithdrawalApprovals: React.FC = () => {
               <button
                 type="button"
                 onClick={handleApproveConfirm}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black shadow-md shadow-amber-500/30"
+                className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
+                  isLight ? 'bg-slate-200 hover:bg-slate-300 text-slate-800 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                }`}
               >
-                Confirm IMPS Release
+                Manual RRN Confirm
               </button>
             </div>
           </div>

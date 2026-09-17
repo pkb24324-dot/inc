@@ -97,8 +97,16 @@ export interface UserAccount {
   teamCommission: number;
   claimableCommission?: number;
   claimedMilestones?: number[];
+  lastSalaryClaimDate?: string; // YYYY-MM-DD
   isFrozen: boolean;
   createdAt: string;
+  avatar?: string;
+  email?: string;
+  kycStatus?: 'verified' | 'pending' | 'unverified';
+  panNumber?: string;
+  aadhaarLast4?: string;
+  securityPin?: string;
+  twoFactorEnabled?: boolean;
   bankDetails?: {
     accountHolder: string;
     accountNumber: string;
@@ -164,6 +172,13 @@ export interface SystemSettings {
   referralL1Percent: number;
   referralL2Percent: number;
   referralL3Percent: number;
+  referralL1SalaryThreshold?: number;
+  referralL1SalaryAmount?: number;
+  referralSignupBonus?: number;
+  autoDistributeCommissions?: boolean;
+  commissionMultiplier?: number; // e.g. 1.0 = 100%, 1.5 = 150% festival boost
+  incomeMultiplier?: number; // e.g. 1.0 = standard, 1.2 = 20% boosted daily profits
+  promoterTierBonusEnabled?: boolean;
   maintenanceMode: boolean;
   globalFreezeDeposits: boolean;
   globalFreezeWithdrawals: boolean;
@@ -181,6 +196,16 @@ export interface SystemSettings {
   watchpayCountry?: string;
   watchpayTransferKey?: string;
   watchpayCallbackIp?: string;
+  // Sunpays Gateway Configuration (ttpay.business)
+  sunpaysEnabled?: boolean;
+  sunpaysMerchantId?: string;
+  sunpaysPayinApiKey?: string;
+  sunpaysPayinApiSecret?: string;
+  sunpaysPayoutApiKey?: string;
+  sunpaysPayoutApiSecret?: string;
+  sunpaysBaseUrl?: string;
+  sunpaysDefaultMethod?: 'upi' | 'bank' | 'usdt';
+  activeGateway?: 'sunpays' | 'watchpay' | 'both';
 }
 
 export interface AuditLog {
@@ -196,7 +221,7 @@ export interface AuditLog {
 export interface IncomeCelebrationData {
   title: string;
   amount: number;
-  source: 'dividend' | 'referral' | 'milestone' | 'spin' | 'checkin' | 'voucher' | 'bulk_dividend';
+  source: 'dividend' | 'referral' | 'milestone' | 'spin' | 'checkin' | 'voucher' | 'bulk_dividend' | 'bonus';
   sourceTitle: string;
   planName?: string;
   dayProgress?: string;
@@ -206,4 +231,11 @@ export interface IncomeCelebrationData {
   newBalance?: number;
   timestamp?: string;
   txId?: string;
+}
+
+export interface ActivePendingDeposit {
+  orderNo: string;
+  amount: number;
+  channelName: string;
+  createdAt: number;
 }

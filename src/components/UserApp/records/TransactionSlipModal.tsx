@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { Transaction } from '../../../types';
 import { sounds } from '../../../utils/audio';
+import { ProfessionalAmount } from '../../common/ProfessionalAmount';
+import { amountInIndianWords } from '../../../utils/currencyFormatter';
 
 interface Props {
   txn: Transaction | null;
@@ -117,13 +119,21 @@ Reason / Query: Please expedite bank verification for this transaction.`;
           <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">
             Settled Transaction Value
           </span>
-          <div className={`text-3xl font-black font-mono ${
-            isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
-          }`}>
-            {isCredit ? '+' : '-'}₹{txn.amount.toLocaleString()}
+          <div className="flex items-center justify-center my-1">
+            <ProfessionalAmount
+              amount={txn.amount}
+              size="3xl"
+              color={isCredit ? 'emerald' : 'amber'}
+              currencyPrefix={isCredit ? '+₹' : '-₹'}
+              showCurrencyBadge={true}
+            />
+          </div>
+
+          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+            {amountInIndianWords(txn.amount)}
           </div>
           
-          <div className="flex items-center justify-center space-x-2 pt-0.5">
+          <div className="flex items-center justify-center space-x-2 pt-1">
             <span className={`inline-flex items-center space-x-1 text-xs font-bold px-2.5 py-0.5 rounded-full capitalize ${
               isSuccess
                 ? isLight ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-500/20 text-emerald-400'
@@ -134,7 +144,7 @@ Reason / Query: Please expedite bank verification for this transaction.`;
               {isSuccess && <CheckCircle2 className="w-3 h-3" />}
               {isPending && <Clock className="w-3 h-3 animate-spin" />}
               {isRejected && <AlertCircle className="w-3 h-3" />}
-              <span>{isSuccess ? 'Cleared & Approved' : isPending ? 'Processing at Banking Node' : 'Declined / Refunded'}</span>
+              <span>{isSuccess ? 'Cleared & Approved' : isPending ? 'Processing at Banking Gateway' : 'Declined / Refunded'}</span>
             </span>
           </div>
         </div>
@@ -224,7 +234,7 @@ Reason / Query: Please expedite bank verification for this transaction.`;
             <div className={`flex justify-between items-center pt-1 border-t ${
               isLight ? 'border-slate-200' : 'border-slate-800'
             }`}>
-              <span className="font-sans text-slate-500">Post-Txn Wallet Bal:</span>
+              <span className="font-sans text-slate-500">Post-Txn Wallet Balance:</span>
               <span className="text-blue-600 dark:text-blue-400 font-bold">₹{txn.runningBalance.toLocaleString()}</span>
             </div>
           )}

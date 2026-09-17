@@ -1,5 +1,5 @@
 // Standard RFC 1321 MD5 Message-Digest Algorithm
-// Pure TypeScript implementation compatible with browser and Node.js environments
+// Pure TypeScript implementation compatible with browser and server environments
 
 function safeAdd(x: number, y: number): number {
   const lsw = (x & 0xffff) + (y & 0xffff);

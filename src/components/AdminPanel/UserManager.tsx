@@ -15,12 +15,17 @@ import {
   Award,
   CreditCard,
   Layers,
-  Sparkles,
   Ban,
   Clock,
   ExternalLink,
   ChevronRight,
-  X
+  X,
+  LayoutGrid,
+  List,
+  Eye,
+  Phone,
+  ArrowUpRight,
+  ArrowDownLeft
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
@@ -41,6 +46,12 @@ export const UserManager: React.FC = () => {
 
   const isLight = theme === 'light';
 
+  const [layoutMode, setLayoutMode] = useState<'cards' | 'table'>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return 'cards';
+    }
+    return 'table';
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [filterVip, setFilterVip] = useState<number | 'all'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'frozen'>('all');
@@ -175,10 +186,188 @@ export const UserManager: React.FC = () => {
               <option key={v} value={v}>VIP {v}</option>
             ))}
           </select>
+
+          {/* Layout Mode Switcher */}
+          <div className={`flex rounded-xl p-1 border ${
+            isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950 border-slate-800'
+          }`}>
+            <button
+              type="button"
+              onClick={() => setLayoutMode('cards')}
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                layoutMode === 'cards'
+                  ? isLight ? 'bg-white text-blue-600 shadow-xs' : 'bg-blue-600 text-white font-bold'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+              title="Cards View (Mobile / Tablet Friendly)"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayoutMode('table')}
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                layoutMode === 'table'
+                  ? isLight ? 'bg-white text-blue-600 shadow-xs' : 'bg-blue-600 text-white font-bold'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+              title="Table View (Desktop Dense)"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Users Table */}
+      {/* Users Display: Cards View OR Table View */}
+      {layoutMode === 'cards' ? (
+        filtered.length === 0 ? (
+          <div className={`p-12 text-center rounded-3xl border ${
+            isLight ? 'bg-white border-slate-200 text-slate-400' : 'bg-slate-900 border-slate-800 text-slate-400'
+          }`}>
+            No members match your search criteria.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+            {filtered.map(user => (
+              <div
+                key={user.id}
+                className={`rounded-2xl border p-4 flex flex-col justify-between transition-all ${
+                  user.isFrozen
+                    ? isLight ? 'bg-red-50/50 border-red-200' : 'bg-red-950/20 border-red-800/60'
+                    : isLight ? 'bg-white border-slate-200 shadow-xs hover:border-slate-300' : 'bg-slate-900 border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-black flex items-center justify-center text-sm shadow-md flex-shrink-0">
+                      {user.name.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center space-x-1.5 truncate">
+                        <span className="truncate">{user.name}</span>
+                        <span className="text-[10px] font-black px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 flex-shrink-0">
+                          VIP {user.vipLevel}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-mono flex items-center space-x-1">
+                        <Phone className="w-3 h-3 text-slate-400" />
+                        <span>+91 {user.phone}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono truncate">
+                        Ref: {user.referralCode}
+                      </div>
+                    </div>
+                  </div>
+
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                    user.isFrozen
+                      ? isLight ? 'bg-red-100 text-red-800' : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                      : isLight ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  }`}>
+                    {user.isFrozen ? 'Frozen' : 'Active'}
+                  </span>
+                </div>
+
+                {/* Body / Stats */}
+                <div className="py-3 space-y-2.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className={`p-2.5 rounded-xl border ${
+                      isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800/80'
+                    }`}>
+                      <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">
+                        Available Balance
+                      </span>
+                      <div className="text-base font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                        ₹{user.balance.toLocaleString()}
+                      </div>
+                    </div>
+
+                    <div className={`p-2.5 rounded-xl border ${
+                      isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800/80'
+                    }`}>
+                      <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">
+                        Total Net Profit
+                      </span>
+                      <div className="text-base font-black text-purple-600 dark:text-purple-400 font-mono">
+                        ₹{user.totalEarned.toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] font-mono px-1">
+                    <div className="flex items-center space-x-1 text-emerald-600 dark:text-emerald-400">
+                      <ArrowDownLeft className="w-3 h-3" />
+                      <span>Recharge: ₹{user.totalRecharge.toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center space-x-1 text-slate-500">
+                      <ArrowUpRight className="w-3 h-3" />
+                      <span>Withdrawn: ₹{user.totalWithdrawn.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1.5">
+                  <button
+                    onClick={() => {
+                      setBalanceModalUser(user.id);
+                      setAdjustAmount(500);
+                      setAdjustType('credit');
+                    }}
+                    className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold border flex items-center justify-center space-x-1 transition-all active:scale-95 cursor-pointer ${
+                      isLight 
+                        ? 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100' 
+                        : 'bg-blue-600/10 text-blue-400 border-blue-500/30 hover:bg-blue-600/20'
+                    }`}
+                    title="Credit/Debit user balance"
+                  >
+                    <DollarSign className="w-3.5 h-3.5" />
+                    <span>Balance</span>
+                  </button>
+
+                  <button
+                    onClick={() => setDossierUserId(user.id)}
+                    className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold border flex items-center justify-center space-x-1 transition-all active:scale-95 cursor-pointer ${
+                      isLight 
+                        ? 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100' 
+                        : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
+                    }`}
+                    title="View user dossier profile"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Dossier</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleSwitchAndPreview(user.id)}
+                    className={`p-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                      isLight ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                    }`}
+                    title="Masquerade login as this user"
+                  >
+                    <LogIn className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={() => toggleUserFrozen(user.id)}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                      user.isFrozen
+                        ? isLight ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
+                        : isLight ? 'bg-red-100 text-red-800 hover:bg-red-200' : 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
+                    }`}
+                    title={user.isFrozen ? 'Unfreeze account' : 'Quarantine / Freeze account'}
+                  >
+                    {user.isFrozen ? 'Unfreeze' : 'Freeze'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : (
+      /* Users Table */
       <div className={`border rounded-3xl overflow-hidden shadow-sm transition-colors ${
         isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'
       }`}>
@@ -285,6 +474,7 @@ export const UserManager: React.FC = () => {
           </table>
         </div>
       </div>
+      )}
 
       {/* USER DOSSIER FULL MODAL */}
       {dossierUser && (

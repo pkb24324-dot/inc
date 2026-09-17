@@ -9,6 +9,7 @@ import {
   ExternalLink,
   Bot
 } from 'lucide-react';
+import { WhatsAppIcon, TelegramIcon } from '../common/SocialIcons';
 import { sounds } from '../../utils/audio';
 
 interface Props {
@@ -28,7 +29,7 @@ export const OnlineSupportModal: React.FC<Props> = ({ isOpen, onClose }) => {
     {
       id: '1',
       sender: 'bot',
-      text: 'Namaste! Welcome to 24/7 ApexCraft Customer Concierge. How can we assist you with your investments or transactions today?',
+      text: 'Namaste! Welcome to 24/7 AM Customer Concierge. How can we assist you with your investments or transactions today?',
       time: 'Just now',
     }
   ]);
@@ -120,18 +121,34 @@ export const OnlineSupportModal: React.FC<Props> = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        {/* Channels banner */}
-        <div className="px-4 py-2 bg-slate-950/80 border-b border-slate-800/80 flex items-center justify-between text-xs flex-shrink-0">
-          <span className="text-slate-400">Official Telegram Channel:</span>
-          <a
-            href="https://t.me"
-            target="_blank"
-            rel="noreferrer"
-            className="text-blue-400 hover:text-blue-300 font-bold flex items-center space-x-1"
-          >
-            <span>@ApexCraft_Official</span>
-            <ExternalLink className="w-3 h-3" />
-          </a>
+        {/* Channels banner with Authentic WhatsApp & Telegram links */}
+        <div className="px-4 py-2.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between text-xs flex-shrink-0 gap-2">
+          <span className="text-slate-400 text-[11px] font-medium hidden sm:inline">Direct Channels:</span>
+          <div className="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-end">
+            {/* Real WhatsApp Direct Link */}
+            <a
+              href="https://api.whatsapp.com/send?phone=919876543210&text=Hello%20AM%20Support,%20I%20need%20assistance"
+              target="_blank"
+              rel="noreferrer"
+              className="px-2.5 py-1 rounded-lg bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] border border-[#25D366]/30 font-bold flex items-center space-x-1.5 transition-all text-[11px]"
+            >
+              <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
+              <span>WhatsApp Desk</span>
+              <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+            </a>
+
+            {/* Real Telegram Direct Link */}
+            <a
+              href="https://t.me/AM_Official"
+              target="_blank"
+              rel="noreferrer"
+              className="px-2.5 py-1 rounded-lg bg-[#229ED9]/15 hover:bg-[#229ED9]/25 text-[#229ED9] border border-[#229ED9]/30 font-bold flex items-center space-x-1.5 transition-all text-[11px]"
+            >
+              <TelegramIcon className="w-3.5 h-3.5 text-[#229ED9]" />
+              <span>Telegram Channel</span>
+              <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+            </a>
+          </div>
         </div>
 
         {/* Message stream */}

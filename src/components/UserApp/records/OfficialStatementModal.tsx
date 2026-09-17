@@ -133,7 +133,7 @@ export const OfficialStatementModal: React.FC<Props> = ({
                   BHARAT CLEAN ENERGY INFRASTRUCTURE
                 </span>
                 <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30 font-mono">
-                  NPCI CLEARING NODE
+                  NPCI CLEARING GATEWAY
                 </span>
               </div>
               <p className="text-[10px] text-slate-500 mt-0.5 font-mono">
@@ -210,7 +210,7 @@ export const OfficialStatementModal: React.FC<Props> = ({
                   <th className="py-2.5 px-3">Particulars</th>
                   <th className="py-2.5 px-3 text-right">Debit (-)</th>
                   <th className="py-2.5 px-3 text-right">Credit (+)</th>
-                  <th className="py-2.5 px-3 text-right">Running Bal</th>
+                  <th className="py-2.5 px-3 text-right">Running Balance</th>
                 </tr>
               </thead>
               <tbody className={`divide-y ${

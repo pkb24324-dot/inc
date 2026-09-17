@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { Transaction } from '../../../types';
 import { DepositTrendsChart } from './DepositTrendsChart';
+import { ProfessionalAmount } from '../../common/ProfessionalAmount';
+import { formatCurrencyINR } from '../../../utils/currencyFormatter';
 
 interface Props {
   transactions: Transaction[];
@@ -88,7 +90,7 @@ export const RecordsAnalytics: React.FC<Props> = ({ transactions, isLight }) => 
               ? isLight ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-500/20 text-emerald-400'
               : 'bg-red-500/20 text-red-400'
           }`}>
-            Net Liquidity: {netGrowth >= 0 ? '+' : ''}₹{netGrowth.toLocaleString()}
+            Net Liquidity: {netGrowth >= 0 ? '+' : '-'}{formatCurrencyINR(Math.abs(netGrowth))}
           </span>
         </div>
 
@@ -111,12 +113,12 @@ export const RecordsAnalytics: React.FC<Props> = ({ transactions, isLight }) => 
             <div className="flex items-center space-x-1.5 text-emerald-600 dark:text-emerald-400">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
               <span>Inflow (Recharges + Profits): {inflowPct}%</span>
-              <span className="font-bold">(₹{totalInflow.toLocaleString()})</span>
+              <span className="font-bold">({formatCurrencyINR(totalInflow)})</span>
             </div>
             <div className="flex items-center space-x-1.5 text-amber-600 dark:text-amber-400">
               <span className="w-2 h-2 rounded-full bg-amber-500" />
               <span>Outflow: {outflowPct}%</span>
-              <span className="font-bold">(₹{totalOutflow.toLocaleString()})</span>
+              <span className="font-bold">({formatCurrencyINR(totalOutflow)})</span>
             </div>
           </div>
         </div>
@@ -140,7 +142,7 @@ export const RecordsAnalytics: React.FC<Props> = ({ transactions, isLight }) => 
             </h4>
           </div>
           <span className="text-[10px] text-slate-500 font-mono">
-            Daily Yield Velocity
+            Daily Profit Velocity
           </span>
         </div>
 
@@ -197,7 +199,7 @@ export const RecordsAnalytics: React.FC<Props> = ({ transactions, isLight }) => 
               </div>
               <div>
                 <span className="text-[10px] text-slate-400 block font-sans">Plant Dividends</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">₹{plantDividends.toLocaleString()}</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrencyINR(plantDividends)}</span>
               </div>
             </div>
           </div>
@@ -211,7 +213,7 @@ export const RecordsAnalytics: React.FC<Props> = ({ transactions, isLight }) => 
               </div>
               <div>
                 <span className="text-[10px] text-slate-400 block font-sans">Team Rebates</span>
-                <span className="font-bold text-purple-600 dark:text-purple-400">₹{teamCommissions.toLocaleString()}</span>
+                <span className="font-bold text-purple-600 dark:text-purple-400">{formatCurrencyINR(teamCommissions)}</span>
               </div>
             </div>
           </div>
@@ -225,7 +227,7 @@ export const RecordsAnalytics: React.FC<Props> = ({ transactions, isLight }) => 
               </div>
               <div>
                 <span className="text-[10px] text-slate-400 block font-sans">Spins & Streaks</span>
-                <span className="font-bold text-blue-600 dark:text-blue-400">₹{rewards.toLocaleString()}</span>
+                <span className="font-bold text-blue-600 dark:text-blue-400">{formatCurrencyINR(rewards)}</span>
               </div>
             </div>
           </div>
