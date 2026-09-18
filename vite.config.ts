@@ -184,17 +184,6 @@ function sunpaysApiPlugin(): Plugin {
         if (url.startsWith('/api/sunpays/check-order')) {
           const u = new URL(url, 'http://localhost');
           const orderId = u.searchParams.get('orderId') || u.searchParams.get('order_id') || '';
-          const action = u.searchParams.get('action');
-
-          if (action === 'complete' && orderId) {
-            paidSunpaysOrders.set(orderId, {
-              order_id: orderId,
-              status: 'success',
-              utr: u.searchParams.get('utr') || `SUN${Date.now().toString().slice(-10)}`,
-              amount: Number(u.searchParams.get('amount') || 0) || undefined,
-              timestamp: Date.now(),
-            });
-          }
 
           const existing = paidSunpaysOrders.get(orderId);
           const isPaid = existing?.status === 'success';
@@ -513,17 +502,6 @@ function watchpayApiPlugin(): Plugin {
             u.searchParams.get('mchOrderNo') ||
             u.searchParams.get('mch_order_no') ||
             '';
-
-          // Allow manual or simulated completion via action=complete
-          if (u.searchParams.get('action') === 'complete' && orderId) {
-            paidWatchPayOrders.set(orderId, {
-              orderNo: orderId,
-              status: 'completed',
-              mchOrderNo: orderId,
-              utr: `UTR${Date.now()}`,
-              timestamp: Date.now(),
-            });
-          }
 
           const order = paidWatchPayOrders.get(orderId);
           const isCompleted = !!order;

@@ -58,7 +58,9 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
     registerPendingDeposit, 
     clearPendingDeposit, 
     openRecordsModal, 
-    completeWatchPayDeposit 
+    completeWatchPayDeposit,
+    submitDepositRequest,
+    showNotification
   } = useApp();
 
   const [selectedAmount, setSelectedAmount] = useState<number>(amount || initialAmount || 700);
@@ -78,11 +80,10 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
 
   const [secondsLeft, setSecondsLeft] = useState<number>(900); // 15 minutes
   const [orderId, setOrderId] = useState<string>('');
-  const [copiedUrl, setCopiedUrl] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   
-  // Stages: 'select' (choose amount & click pay) -> 'awaiting' (page opened, waiting for confirmation) -> 'success'
-  const [stage, setStage] = useState<'select' | 'awaiting' | 'success'>('select');
+  // Stages: 'select' (choose amount & click pay) -> 'awaiting' (page opened, waiting for confirmation) -> 'submitted' (pending admin approval) -> 'success' (verified)
+  const [stage, setStage] = useState<'select' | 'awaiting' | 'submitted' | 'success'>('select');
 
   const [cashierUrl, setCashierUrl] = useState<string>('');
   const [signPreview, setSignPreview] = useState<string>('');
@@ -287,58 +288,28 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
   const seconds = secondsLeft % 60;
   const timerDisplay = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
-  const handleCopyUrl = () => {
-    navigator.clipboard.writeText(payInfoUrl || cashierUrl);
-    setCopiedUrl(true);
-    sounds.playClick();
-    setTimeout(() => setCopiedUrl(false), 2000);
-  };
-
-  // Immediate Auto-credit: marks order as 'completed' on server
-  // and enables the real-time polling mechanism to immediately detect the transition!
-  const handleAutoCreditPayment = async () => {
-    setIsVerifying(true);
-    setGatewayStatus('checking');
-    sounds.playClick();
-
-    try {
-      const res = await fetch(
-        `/api/watchpay/check-order?orderNo=${encodeURIComponent(orderId)}&action=complete&amount=${selectedAmount}`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (data.status === 'completed' || data.paid) {
-          setGatewayStatus('completed');
-          setStage('success');
-          setIsVerifying(false);
-          sounds.playSuccess();
-          clearPendingDeposit();
-          const generatedUtr = data.order?.utr || data.utr || `WP${Date.now().toString().slice(-10)}`;
-          setTimeout(() => {
-            handleSuccessCallback(generatedUtr, `WatchPay Auto-Credit (pay_type: ${activePayType})`);
-            onClose();
-          }, 1200);
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn('Auto credit verification error', err);
+  // Submit 12-digit UTR payment proof for admin verification
+  // Prevents unauthorized wallet balance additions: creates a pending deposit request
+  const handleSubmitPaymentProof = () => {
+    const cleanUtr = utrInput.trim();
+    if (!cleanUtr || cleanUtr.length < 10) {
+      showNotification('Please enter a valid 12-digit UPI UTR / Reference Number', 'warning');
+      return;
     }
 
-    // Fallback if local fetch encounters an issue
-    setTimeout(() => {
-      setGatewayStatus('completed');
-      setStage('success');
-      setIsVerifying(false);
-      sounds.playSuccess();
-      clearPendingDeposit();
-      const generatedUtr = `WP${Date.now().toString().slice(-10)}`;
+    setIsVerifying(true);
+    sounds.playCash();
 
+    const ok = submitDepositRequest(selectedAmount, 'WatchPay UPI', cleanUtr);
+    setIsVerifying(false);
+    if (ok) {
+      clearPendingDeposit();
+      setStage('submitted');
+      sounds.playSuccess();
       setTimeout(() => {
-        handleSuccessCallback(generatedUtr, `WatchPay Auto (pay_type: ${activePayType})`);
         onClose();
-      }, 1200);
-    }, 1200);
+      }, 2500);
+    }
   };
 
   return (
@@ -427,7 +398,7 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
         {/* Modal Main Body */}
         <div className="p-4 space-y-3.5 max-h-[78vh] overflow-y-auto">
           
-          {/* 1. SUCCESS STATE */}
+          {/* 1. SUCCESS STATE (GATEWAY CONFIRMED) */}
           {stage === 'success' && (
             <div className="py-6 text-center space-y-2.5 animate-in zoom-in-95 duration-200">
               <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
@@ -435,7 +406,33 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
               </div>
               <h3 className="text-base font-black text-white">Deposit Credited Automatically!</h3>
               <p className="text-xs text-slate-300 max-w-xs mx-auto">
-                Transaction verified successfully. ₹{selectedAmount.toFixed(2)} has been added to your balance.
+                Transaction verified successfully by gateway. ₹{selectedAmount.toFixed(2)} has been added to your balance.
+              </p>
+            </div>
+          )}
+
+          {/* 1B. SUBMITTED STATE (PENDING ADMIN VERIFICATION) */}
+          {stage === 'submitted' && (
+            <div className="py-6 text-center space-y-2.5 animate-in zoom-in-95 duration-200">
+              <div className="w-14 h-14 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center justify-center mx-auto shadow-lg shadow-blue-500/20">
+                <Clock className="w-8 h-8" />
+              </div>
+              <h3 className="text-base font-black text-white">Deposit Request Submitted!</h3>
+              <p className="text-xs text-slate-300 max-w-xs mx-auto">
+                Payment reference <span className="font-mono text-amber-400 font-bold">{utrInput}</span> has been received.
+              </p>
+              <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl max-w-xs mx-auto text-left space-y-1">
+                <div className="flex justify-between text-xs text-slate-400">
+                  <span>Amount:</span>
+                  <span className="font-bold text-white font-mono">₹{selectedAmount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-400">
+                  <span>Status:</span>
+                  <span className="font-bold text-amber-400">Pending Verification</span>
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                Admin will verify your payment and credit the funds to your balance.
               </p>
             </div>
           )}
@@ -651,36 +648,30 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
                   The payment window has opened. Complete your transfer of <strong className="text-emerald-400">₹{selectedAmount.toLocaleString()}</strong> using UPI or NetBanking.
                 </p>
 
-                <div className="grid grid-cols-2 gap-2 pt-0.5">
+                <div className="pt-0.5">
                   <button
                     type="button"
                     onClick={() => handleDirectPay(selectedAmount)}
-                    className="py-2 px-3 rounded-lg btn-chamko-emerald text-white font-bold text-xs flex items-center justify-center space-x-1 transition-all active:scale-98 cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-xl btn-chamko-emerald text-white font-bold text-xs flex items-center justify-center space-x-1.5 transition-all active:scale-98 cursor-pointer shadow-md shadow-emerald-600/20"
                   >
                     <ExternalLink className="w-3.5 h-3.5 stroke-[2.5]" />
-                    <span>Re-open Window</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleCopyUrl}
-                    className="py-2 px-3 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-300 text-xs font-mono font-medium flex items-center justify-center space-x-1 transition-colors border border-slate-700 cursor-pointer"
-                  >
-                    {copiedUrl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedUrl ? 'Copied' : 'Copy Paylink'}</span>
+                    <span>Re-open Payment Window</span>
                   </button>
                 </div>
               </div>
 
-              {/* ADVANCED INSTANT UTR VERIFICATION BOX */}
+              {/* UTR VERIFICATION SUBMISSION BOX */}
               <div className="bg-slate-950 rounded-2xl p-3 border border-slate-800 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-white flex items-center space-x-1">
-                    <Zap className="w-3 h-3 text-amber-400" />
-                    <span>Fast UTR Sync (Optional)</span>
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Submit 12-Digit UTR / Ref Number</span>
                   </span>
-                  <span className="text-[9px] text-amber-400/90 font-mono">12-Digit Ref</span>
+                  <span className="text-[9px] text-amber-400 font-mono">Verification Required</span>
                 </div>
+                <p className="text-[10px] text-slate-400">
+                  After paying in your UPI app, enter the 12-digit UTR from your payment receipt for admin verification.
+                </p>
 
                 <div className="flex space-x-1.5">
                   <input
@@ -688,39 +679,40 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
                     maxLength={12}
                     value={utrInput}
                     onChange={(e) => setUtrInput(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Enter 12-digit UTR from UPI app"
-                    className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono focus:border-amber-500 focus:outline-none"
+                    placeholder="Enter 12-digit UTR number"
+                    className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
                   />
                   <button
                     type="button"
-                    onClick={handleAutoCreditPayment}
-                    disabled={isVerifying}
-                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                    onClick={handleSubmitPaymentProof}
+                    disabled={isVerifying || utrInput.trim().length < 6}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50 flex items-center space-x-1"
                   >
-                    Verify
+                    {isVerifying ? (
+                      <>
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                        <span>Submitting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Submit UTR</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
 
-              {/* 1-CLICK INSTANT AUTO-CREDIT BUTTON */}
-              <button
-                type="button"
-                onClick={handleAutoCreditPayment}
-                disabled={isVerifying}
-                className="w-full py-3 px-4 rounded-xl btn-chamko-blue text-white font-black text-xs shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all active:scale-98 disabled:opacity-60 cursor-pointer"
-              >
-                {isVerifying ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Verifying UPI Settlement...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>I Have Paid — Credit ₹{selectedAmount.toLocaleString()} Now</span>
-                    <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
-                  </>
-                )}
-              </button>
+              {/* Security Notice: Verified Banking Protocol */}
+              <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 text-[10px] text-slate-400 space-y-1">
+                <div className="flex items-center space-x-1.5 text-amber-400 font-semibold">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Verified Settlement Protocol</span>
+                </div>
+                <p>
+                  Funds will be credited to your wallet balance once payment confirmation is verified through banking reconciliation.
+                </p>
+              </div>
 
               {/* Compact Auto-Poller Status Strip */}
               <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-[10px]">

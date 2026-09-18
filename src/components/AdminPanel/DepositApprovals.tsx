@@ -823,7 +823,7 @@ export const DepositApprovals: React.FC = () => {
                 >
                   {allUsers.map(u => (
                     <option key={u.id} value={u.id}>
-                      {u.name} (+91 {u.phone}) — Bal: ₹{u.balance.toLocaleString()}
+                      {u.name} (+91 {u.phone}) — Balance: ₹{u.balance.toLocaleString()}
                     </option>
                   ))}
                 </select>

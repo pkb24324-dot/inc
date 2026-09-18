@@ -34,8 +34,7 @@ import {
   Percent,
   CalendarRange,
   ArrowRight,
-  Printer,
-  Settings
+  Printer
 } from 'lucide-react';
 import { Transaction, RecordCategory } from '../../types';
 import { sounds } from '../../utils/audio';
@@ -69,10 +68,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
   // Active Category Tab: 'recharge' | 'income' | 'withdrawal' | 'all'
   const [activeTab, setActiveTab] = useState<RecordCategory>(defaultTab);
 
-  // Presentation Mode: 'simple' (clean, intuitive cards with auto-credit badges) | 'advance' (audit passbook, table, date range, filters)
-  const [recordsMode, setRecordsMode] = useState<'simple' | 'advance'>('simple');
-  
-  // View mode (for Advance mode): 'stream' (cards) | 'passbook' (bank table) | 'analytics' (cashflow insights)
+  // View mode: 'stream' (cards) | 'passbook' (bank table) | 'analytics' (cashflow insights)
   const [viewMode, setViewMode] = useState<'stream' | 'passbook' | 'analytics'>('stream');
 
   // Filters
@@ -380,107 +376,69 @@ export const FinancialRecordsModal: React.FC<Props> = ({
             <div className="min-w-0 truncate">
               <div className="flex items-center space-x-1.5 flex-wrap">
                 <h2 className="text-xs sm:text-sm font-bold flex items-center space-x-1.5 font-['Outfit'] truncate">
-                  <span>{recordsMode === 'simple' ? 'Financial Records (सरल)' : 'Advance Ledger (एडवांस)'}</span>
+                  <span>Financial Records</span>
                 </h2>
                 <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full font-mono ${
-                  recordsMode === 'simple' 
-                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
-                    : isLight ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  isLight ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                 }`}>
-                  {recordsMode === 'simple' ? 'Simple View' : 'NPCI 24×7'}
+                  NPCI 24×7
                 </span>
               </div>
               <p className="text-[10px] text-slate-500 hidden sm:block truncate">
-                {recordsMode === 'simple' 
-                  ? 'Separate Recharge, Income & Withdrawal Records' 
-                  : 'Audited transaction ledger & verified slips'}
+                Recharge, Income, Withdrawal & Passbook Ledger
               </p>
             </div>
           </div>
 
           <div className="flex items-center space-x-1.5 flex-shrink-0">
-            {/* Simple vs Advance Mode Toggle */}
-            <div className={`flex rounded-xl p-0.5 border ${
-              isLight ? 'bg-slate-200/80 border-slate-300' : 'bg-slate-800 border-slate-700'
+            {/* View Switcher: Cards, Passbook Table, Analytics */}
+            <div className={`flex rounded-lg p-0.5 border ${
+              isLight ? 'bg-slate-200/70 border-slate-300' : 'bg-slate-800 border-slate-700'
             }`}>
               <button
-                onClick={() => { setRecordsMode('simple'); sounds.playClick(); }}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center space-x-1 transition-all cursor-pointer ${
-                  recordsMode === 'simple'
-                    ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
+                onClick={() => { setViewMode('stream'); sounds.playClick(); }}
+                title="Cards Stream"
+                className={`p-1 rounded-md transition-all cursor-pointer ${
+                  viewMode === 'stream' 
+                    ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white' 
+                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
                 }`}
-                title="Simple Mode (सरल रिकॉर्ड)"
               >
-                <Zap className="w-3 h-3" />
-                <span>Simple</span>
+                <LayoutList className="w-3.5 h-3.5" />
               </button>
               <button
-                onClick={() => { setRecordsMode('advance'); sounds.playClick(); }}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center space-x-1 transition-all cursor-pointer ${
-                  recordsMode === 'advance'
-                    ? isLight ? 'bg-white text-purple-600 shadow-sm' : 'bg-purple-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
+                onClick={() => { setViewMode('passbook'); sounds.playClick(); }}
+                title="Bank Table Passbook"
+                className={`p-1 rounded-md transition-all cursor-pointer ${
+                  viewMode === 'passbook' 
+                    ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white' 
+                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
                 }`}
-                title="Advance Mode (विस्तृत रिकॉर्ड)"
               >
-                <Settings className="w-3 h-3" />
-                <span>Advance</span>
+                <TableIcon className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => { setViewMode('analytics'); sounds.playClick(); }}
+                title="Cashflow Analytics"
+                className={`p-1 rounded-md transition-all cursor-pointer ${
+                  viewMode === 'analytics' 
+                    ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white' 
+                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {/* Advance view controllers (only in Advance mode) */}
-            {recordsMode === 'advance' && (
-              <>
-                <div className={`hidden sm:flex rounded-lg p-0.5 border ${
-                  isLight ? 'bg-slate-200/70 border-slate-300' : 'bg-slate-800 border-slate-700'
-                }`}>
-                  <button
-                    onClick={() => { setViewMode('stream'); sounds.playClick(); }}
-                    title="Cards Stream"
-                    className={`p-1 rounded-md transition-all ${
-                      viewMode === 'stream' 
-                        ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white' 
-                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
-                    }`}
-                  >
-                    <LayoutList className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => { setViewMode('passbook'); sounds.playClick(); }}
-                    title="Bank Table Passbook"
-                    className={`p-1 rounded-md transition-all ${
-                      viewMode === 'passbook' 
-                        ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white' 
-                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
-                    }`}
-                  >
-                    <TableIcon className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => { setViewMode('analytics'); sounds.playClick(); }}
-                    title="Cashflow Analytics"
-                    className={`p-1 rounded-md transition-all ${
-                      viewMode === 'analytics' 
-                        ? isLight ? 'bg-white text-blue-600 shadow-sm' : 'bg-blue-600 text-white' 
-                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
-                    }`}
-                  >
-                    <BarChart3 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => setIsStatementOpen(true)}
-                  title="Official Statement"
-                  className={`p-1.5 rounded-lg border text-xs font-bold transition-colors ${
-                    isLight ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
-                  }`}
-                >
-                  <Printer className="w-3.5 h-3.5 text-blue-500" />
-                </button>
-              </>
-            )}
+            <button
+              onClick={() => setIsStatementOpen(true)}
+              title="Official Statement"
+              className={`p-1.5 rounded-lg border text-xs font-bold transition-colors cursor-pointer ${
+                isLight ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+              }`}
+            >
+              <Printer className="w-3.5 h-3.5 text-blue-500" />
+            </button>
 
             <button
               onClick={handleRefresh}
@@ -516,7 +474,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                 setCurrentPage(1);
                 sounds.playClick();
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
+              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
                 activeTab === 'recharge'
                   ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/30'
                   : isLight 
@@ -524,9 +482,9 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                     : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
               }`}
             >
-              <CreditCard className="w-3.5 h-3.5" />
+              <CreditCard className="w-3 h-3" />
               <span>Recharge Record (रिचार्ज)</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+              <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono ${
                 activeTab === 'recharge' ? 'bg-white/20 text-white' : isLight ? 'bg-slate-200 text-slate-700' : 'bg-slate-800 text-slate-400'
               }`}>
                 {metrics.rechargeCount}
@@ -540,7 +498,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                 setCurrentPage(1);
                 sounds.playClick();
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
+              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
                 activeTab === 'income'
                   ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
                   : isLight 
@@ -548,14 +506,14 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                     : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
               }`}
             >
-              <TrendingUp className="w-3.5 h-3.5" />
+              <TrendingUp className="w-3 h-3" />
               <span>Income Record (इनकम)</span>
               {metrics.todayIncome > 0 ? (
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-400 text-slate-950 font-black">
+                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-400 text-slate-950 font-black">
                   +₹{metrics.todayIncome}
                 </span>
               ) : (
-                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
+                <span className="text-[8.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
                   Auto
                 </span>
               )}
@@ -568,7 +526,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                 setCurrentPage(1);
                 sounds.playClick();
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
+              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
                 activeTab === 'withdrawal'
                   ? 'bg-amber-500 text-slate-950 shadow-sm shadow-amber-500/30'
                   : isLight 
@@ -576,10 +534,10 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                     : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
               }`}
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="w-3 h-3" />
               <span>Withdrawal Record (निकासी)</span>
               {metrics.pendingWithdrawals > 0 && (
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-600 font-mono font-bold">
+                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-600 font-mono font-bold">
                   Pending
                 </span>
               )}
@@ -592,7 +550,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                 setCurrentPage(1);
                 sounds.playClick();
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
+              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
                 activeTab === 'all'
                   ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
                   : isLight 
@@ -600,7 +558,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                     : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
               }`}
             >
-              <Layers className="w-3.5 h-3.5" />
+              <Layers className="w-3 h-3" />
               <span>All Passbook</span>
             </button>
           </div>
@@ -614,37 +572,37 @@ export const FinancialRecordsModal: React.FC<Props> = ({
             {activeTab === 'recharge' && (
               <>
                 <div>
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Total Recharged</span>
-                  <span className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400">
+                  <span className="text-[9px] text-slate-500 uppercase tracking-wider block font-semibold">Total Recharged</span>
+                  <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400">
                     ₹{metrics.totalRechargeSuccess.toLocaleString()}
                   </span>
                 </div>
                 <div className={`border-x px-2 ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">In Verification</span>
-                  <span className={`text-base font-black font-mono ${metrics.pendingRecharges > 0 ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`}>
+                  <span className="text-[9px] text-slate-500 uppercase tracking-wider block font-semibold">In Verification</span>
+                  <span className={`text-xs font-bold font-mono ${metrics.pendingRecharges > 0 ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`}>
                     ₹{metrics.pendingRecharges.toLocaleString()}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">30D Trend Chart</span>
+                  <span className="text-[9px] text-slate-500 uppercase tracking-wider block font-semibold">30D Trend Chart</span>
                   <button
                     onClick={() => {
                       setShowTrendChart(!showTrendChart);
                       sounds.playClick();
                     }}
-                    className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center space-x-1 mt-0.5 hover:underline"
+                    className="text-[10px] font-bold text-blue-600 dark:text-blue-400 flex items-center space-x-1 mt-0.5 hover:underline"
                   >
-                    <TrendingUp className="w-3.5 h-3.5" />
+                    <TrendingUp className="w-3 h-3" />
                     <span>{showTrendChart ? 'Hide Line' : 'View Line'}</span>
                   </button>
                 </div>
                 <div className={`border-l pl-2 ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Self-Service</span>
+                  <span className="text-[9px] text-slate-500 uppercase tracking-wider block font-semibold">Self-Service</span>
                   <button
                     onClick={() => setShowUtrHelper(!showUtrHelper)}
-                    className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center space-x-1 mt-0.5 hover:underline"
+                    className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center space-x-1 mt-0.5 hover:underline"
                   >
-                    <HelpCircle className="w-3.5 h-3.5" />
+                    <HelpCircle className="w-3 h-3" />
                     <span>{showUtrHelper ? 'Hide' : 'UTR Desk'}</span>
                   </button>
                 </div>
@@ -654,20 +612,20 @@ export const FinancialRecordsModal: React.FC<Props> = ({
             {activeTab === 'income' && (
               <>
                 <div>
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Total Profit</span>
-                  <span className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400">
+                  <span className="text-[9px] text-slate-500 uppercase tracking-wider block font-semibold">Total Profit</span>
+                  <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400">
                     ₹{metrics.totalProfitEarned.toLocaleString()}
                   </span>
                 </div>
                 <div className={`border-x px-2 ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Today's Accrual</span>
-                  <span className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400">
+                  <span className="text-[9px] text-slate-500 uppercase tracking-wider block font-semibold">Today's Accrual</span>
+                  <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400">
                     +₹{metrics.todayIncome.toLocaleString()}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Team Rebate</span>
-                  <span className="text-sm font-black font-mono text-purple-600 dark:text-purple-400">
+                  <span className="text-[9px] text-slate-500 uppercase tracking-wider block font-semibold">Team Rebate</span>
+                  <span className="text-xs font-bold font-mono text-purple-600 dark:text-purple-400">
                     ₹{metrics.teamCommission.toLocaleString()}
                   </span>
                 </div>
@@ -677,14 +635,14 @@ export const FinancialRecordsModal: React.FC<Props> = ({
             {activeTab === 'withdrawal' && (
               <>
                 <div>
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Total Withdrawn</span>
-                  <span className="text-sm font-black font-mono text-amber-600 dark:text-amber-400">
+                  <span className="text-[9px] text-slate-500 uppercase tracking-wider block font-semibold">Total Withdrawn</span>
+                  <span className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400">
                     ₹{metrics.totalWithdrawalSuccess.toLocaleString()}
                   </span>
                 </div>
                 <div className={`border-x px-2 ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">In Bank Clearing</span>
-                  <span className={`text-sm font-black font-mono ${metrics.pendingWithdrawals > 0 ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`}>
+                  <span className="text-[9px] text-slate-500 uppercase tracking-wider block font-semibold">In Bank Clearing</span>
+                  <span className={`text-xs font-bold font-mono ${metrics.pendingWithdrawals > 0 ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`}>
                     ₹{metrics.pendingWithdrawals.toLocaleString()}
                   </span>
                 </div>
@@ -1057,9 +1015,9 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                             {isInvestment && <Zap className="w-5 h-5" />}
                           </div>
 
-                          <div>
-                            <div className="flex items-center space-x-2">
-                              <h4 className="text-xs font-black capitalize">
+                            <div>
+                            <div className="flex items-center space-x-1.5">
+                              <h4 className="text-[11px] font-bold capitalize">
                                 {txn.type === 'deposit'
                                   ? 'Wallet Recharge'
                                   : txn.type === 'withdrawal'
@@ -1076,7 +1034,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                               </h4>
 
                               {txn.channel && (
-                                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border font-mono ${
+                                <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded border font-mono ${
                                   isLight ? 'bg-slate-100 text-slate-700 border-slate-200' : 'bg-slate-800 text-slate-300 border-slate-700/60'
                                 }`}>
                                   {txn.channel}
@@ -1084,18 +1042,18 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                               )}
                             </div>
 
-                            <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+                            <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">
                               {txn.description}
                             </p>
 
-                            <div className="text-[10px] text-slate-400 font-mono flex items-center space-x-1.5 mt-0.5">
+                            <div className="text-[9px] text-slate-400 font-mono flex items-center space-x-1 mt-0.5">
                               <span>{new Date(txn.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                               <span>•</span>
                               <span>{new Date(txn.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                               {txn.runningBalance !== undefined && (
                                 <>
                                   <span>•</span>
-                                  <span className="text-blue-600 dark:text-blue-400 font-bold">Balance: ₹{txn.runningBalance.toLocaleString()}</span>
+                                  <span className="text-blue-600 dark:text-blue-400 font-semibold">Bal: ₹{txn.runningBalance.toLocaleString()}</span>
                                 </>
                               )}
                             </div>
@@ -1104,28 +1062,28 @@ export const FinancialRecordsModal: React.FC<Props> = ({
 
                         {/* Right Amount & Status */}
                         <div className="text-right flex-shrink-0">
-                          <div className={`text-base font-black font-mono ${
+                          <div className={`text-sm font-black font-mono ${
                             isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
                           }`}>
                             {isCredit ? '+' : '-'}₹{txn.amount.toLocaleString()}
                           </div>
 
                           {txn.netAmount !== undefined && txn.fee !== undefined && txn.fee > 0 && (
-                            <div className="text-[9px] text-slate-400 font-mono">
+                            <div className="text-[8.5px] text-slate-400 font-mono">
                               Net: ₹{txn.netAmount.toLocaleString()}
                             </div>
                           )}
 
-                          <span className={`inline-flex items-center space-x-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full mt-1 capitalize ${
+                          <span className={`inline-flex items-center space-x-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full mt-1 capitalize ${
                             isSuccess
                               ? isLight ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                               : isPending
                               ? isLight ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
                               : isLight ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-red-500/10 text-red-400 border border-red-500/30'
                           }`}>
-                            {isSuccess && <CheckCircle2 className="w-2.5 h-2.5" />}
-                            {isPending && <Clock className="w-2.5 h-2.5 animate-spin" />}
-                            {isRejected && <AlertCircle className="w-2.5 h-2.5" />}
+                            {isSuccess && <CheckCircle2 className="w-2 h-2" />}
+                            {isPending && <Clock className="w-2 h-2 animate-spin" />}
+                            {isRejected && <AlertCircle className="w-2 h-2" />}
                             <span>{isSuccess ? 'Success' : isPending ? 'In Verification' : 'Declined / Refunded'}</span>
                           </span>
                         </div>
@@ -1133,11 +1091,11 @@ export const FinancialRecordsModal: React.FC<Props> = ({
 
                       {/* For Deposits: 12-Digit UTR Information & Copy */}
                       {isDeposit && txn.utrNumber && (
-                        <div className={`rounded-xl px-3 py-2 flex items-center justify-between text-xs border ${
+                        <div className={`rounded-xl px-2.5 py-1.5 flex items-center justify-between text-[10px] border ${
                           isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950/70 border-slate-800'
                         }`}>
                           <div className="flex items-center space-x-1.5 font-mono">
-                            <span className="text-slate-500 text-[11px]">UTR:</span>
+                            <span className="text-slate-500 text-[10px]">UTR:</span>
                             <span className="text-amber-600 dark:text-amber-300 font-bold tracking-wider">{txn.utrNumber}</span>
                           </div>
                           <button
@@ -1145,16 +1103,16 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                               e.stopPropagation();
                               handleCopy(txn.utrNumber!, 'UTR');
                             }}
-                            className="text-slate-500 hover:text-blue-600 dark:hover:text-white flex items-center space-x-1 text-[11px]"
+                            className="text-slate-500 hover:text-blue-600 dark:hover:text-white flex items-center space-x-1 text-[10px]"
                           >
                             {copiedText === txn.utrNumber ? (
                               <>
-                                <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
                                 <span className="text-emerald-600 dark:text-emerald-400 font-bold">Copied</span>
                               </>
                             ) : (
                               <>
-                                <Copy className="w-3 h-3" />
+                                <Copy className="w-2.5 h-2.5" />
                                 <span>Copy UTR</span>
                               </>
                             )}
@@ -1164,29 +1122,29 @@ export const FinancialRecordsModal: React.FC<Props> = ({
 
                       {/* For Withdrawals: Bank Destination & Bank RRN */}
                       {isWithdrawal && (
-                        <div className={`rounded-xl px-3 py-2 space-y-1 text-xs font-mono border ${
+                        <div className={`rounded-xl px-2.5 py-1.5 space-y-1 text-[10px] font-mono border ${
                           isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950/70 border-slate-800'
                         }`}>
                           <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
-                            <div className="flex items-center space-x-1.5 font-sans">
+                            <div className="flex items-center space-x-1 font-sans">
                               {txn.bankDetails?.upiId ? (
                                 <>
-                                  <Smartphone className="w-3 h-3 text-blue-500" />
+                                  <Smartphone className="w-2.5 h-2.5 text-blue-500" />
                                   <span className="font-bold">{txn.bankDetails.upiId}</span>
                                 </>
                               ) : (
                                 <>
-                                  <Building2 className="w-3 h-3 text-amber-500" />
+                                  <Building2 className="w-2.5 h-2.5 text-amber-500" />
                                   <span className="font-bold">{txn.bankDetails?.bankName || 'Bank IMPS Payout'}</span>
                                 </>
                               )}
                             </div>
-                            <span className="text-[10px] text-slate-500">
+                            <span className="text-[9px] text-slate-500">
                               {txn.bankDetails?.accountNumber ? `A/C •••• ${txn.bankDetails.accountNumber.slice(-4)}` : 'UPI VPA'}
                             </span>
                           </div>
                           {txn.rrn && (
-                            <div className={`text-[10px] text-slate-500 flex items-center justify-between pt-1 border-t ${
+                            <div className={`text-[9px] text-slate-500 flex items-center justify-between pt-1 border-t ${
                               isLight ? 'border-slate-200' : 'border-slate-800/60'
                             }`}>
                               <span>Bank RRN Reference:</span>
@@ -1196,52 +1154,21 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                         </div>
                       )}
 
-                      {/* 4-Step Interactive Lifecycle Tracker for Pending items */}
-                      {isPending && (
-                        <div className={`rounded-xl p-2.5 space-y-2 border ${
-                          isLight ? 'bg-amber-50/70 border-amber-300' : 'bg-slate-950/80 border-amber-500/30'
-                        }`}>
-                          <div className="flex items-center justify-between text-[11px] font-bold text-amber-700 dark:text-amber-300">
-                            <span className="flex items-center space-x-1">
-                              <Clock className="w-3 h-3 animate-spin" />
-                              <span>{isDeposit ? 'Bank UTR Clearing In-Progress' : 'IMPS Switch Clearance In-Progress'}</span>
-                            </span>
-                            <span className="text-[10px] text-slate-500 font-mono">ETA: 5-15 Minutes</span>
-                          </div>
-
-                          {/* Progress Stepper Bar */}
-                          <div className="grid grid-cols-4 gap-1 text-[9px] text-center font-bold">
-                            <div className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 py-1 rounded border border-emerald-500/40">
-                              1. Submitted
-                            </div>
-                            <div className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 py-1 rounded border border-emerald-500/40">
-                              2. Audited
-                            </div>
-                            <div className="bg-amber-500/20 text-amber-700 dark:text-amber-300 py-1 rounded border border-amber-500/50 animate-pulse">
-                              3. Banking Gateway
-                            </div>
-                            <div className={`${isLight ? 'bg-white text-slate-400 border-slate-200' : 'bg-slate-900 text-slate-500 border-slate-800'} py-1 rounded border`}>
-                              4. Credited
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
                       {/* Rejection notice with refund guarantee */}
                       {isRejected && (
-                        <div className={`rounded-xl p-2.5 text-xs space-y-1 border ${
+                        <div className={`rounded-xl p-2 text-[10px] space-y-1 border ${
                           isLight ? 'bg-red-50 border-red-200 text-red-800' : 'bg-red-950/30 border-red-500/30 text-red-300'
                         }`}>
-                          <div className="flex items-center space-x-1.5 font-bold">
-                            <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                          <div className="flex items-center space-x-1 font-bold">
+                            <AlertCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
                             <span>Audit Remark:</span>
                           </div>
-                          <p className="text-[11px] pl-5">
+                          <p className="text-[9.5px] pl-4">
                             {txn.rejectionReason || 'Transaction could not be cleared by the receiver banking network.'}
                           </p>
                           {isWithdrawal && (
-                            <div className="text-[10px] pl-5 font-bold text-emerald-600 dark:text-emerald-400 flex items-center space-x-1 mt-1">
-                              <CheckCircle2 className="w-3 h-3" />
+                            <div className="text-[9px] pl-4 font-bold text-emerald-600 dark:text-emerald-400 flex items-center space-x-1 mt-0.5">
+                              <CheckCircle2 className="w-2.5 h-2.5" />
                               <span>Full amount has been 100% refunded back to your wallet balance.</span>
                             </div>
                           )}
@@ -1249,16 +1176,16 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                       )}
 
                       {/* Card Footer: View Official Slip CTA */}
-                      <div className={`flex items-center justify-between pt-1 border-t text-[11px] ${
+                      <div className={`flex items-center justify-between pt-1 border-t text-[9.5px] ${
                         isLight ? 'border-slate-100' : 'border-slate-800/60'
                       }`}>
                         <span className="text-slate-400 flex items-center space-x-1">
-                          <ShieldCheck className="w-3 h-3 text-emerald-500" />
+                          <ShieldCheck className="w-2.5 h-2.5 text-emerald-500" />
                           <span>Cryptographic Proof Attached</span>
                         </span>
-                        <span className="text-blue-600 dark:text-blue-400 hover:underline font-bold flex items-center space-x-1">
+                        <span className="text-blue-600 dark:text-blue-400 hover:underline font-bold flex items-center space-x-0.5">
                           <span>View Official Slip</span>
-                          <ChevronRight className="w-3 h-3" />
+                          <ChevronRight className="w-2.5 h-2.5" />
                         </span>
                       </div>
 

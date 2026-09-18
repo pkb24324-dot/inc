@@ -262,6 +262,33 @@ export const INITIAL_USER: UserAccount = {
 };
 
 export const INITIAL_OTHER_USERS: UserAccount[] = [
+  // --- SYSTEM MASTER ADMIN ---
+  {
+    id: 'usr-admin-001',
+    name: 'Master Admin',
+    phone: '9999999999',
+    role: 'admin',
+    vipLevel: 9,
+    balance: 500000,
+    totalRecharge: 1000000,
+    totalWithdrawn: 250000,
+    totalEarned: 750000,
+    spinChances: 99,
+    referralCode: 'ADMIN01',
+    referralsCount: 150,
+    teamCommission: 85000,
+    claimableCommission: 0,
+    claimedMilestones: [0, 1, 2],
+    isFrozen: false,
+    createdAt: '2026-01-01T10:00:00Z',
+    bankDetails: {
+      accountHolder: 'Apex Treasury Admin',
+      accountNumber: '99887766554433',
+      ifsc: 'SBIN0000001',
+      bankName: 'State Bank of India',
+      upiId: 'am.pay@oksbi',
+    },
+  },
   // --- LEVEL 1 DIRECT REFERRALS (referredBy: 'APEX779') ---
   {
     id: 'usr-902',

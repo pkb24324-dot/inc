@@ -10,6 +10,7 @@ import { BottomNav } from './components/UserApp/BottomNav';
 import { AdminPanel } from './components/AdminPanel/AdminPanel';
 import { FinancialRecordsModal } from './components/UserApp/FinancialRecordsModal';
 import { IncomeCongratulationsModal } from './components/UserApp/IncomeCongratulationsModal';
+import { LoginScreen } from './components/Auth/LoginScreen';
 import { Lock, ShieldCheck, KeyRound, ArrowRight } from 'lucide-react';
 import { sounds } from './utils/audio';
 
@@ -23,17 +24,24 @@ const MainApp: React.FC = () => {
     recordsModalOpen,
     recordsDefaultTab,
     closeRecordsModal,
-    theme
+    switchUserAccount,
+    theme,
+    isLoggedIn
   } = useApp();
 
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
+
+  if (!isLoggedIn) {
+    return <LoginScreen />;
+  }
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (pin === '8888' || pin === '1234') {
       sounds.playSuccess();
       setAdminAuthenticated(true);
+      switchUserAccount('usr-admin-001');
       setPin('');
       setPinError('');
     } else {
@@ -45,6 +53,7 @@ const MainApp: React.FC = () => {
   const handleQuickUnlock = () => {
     sounds.playSuccess();
     setAdminAuthenticated(true);
+    switchUserAccount('usr-admin-001');
   };
 
   return (

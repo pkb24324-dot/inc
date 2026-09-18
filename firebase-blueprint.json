@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "ApexFund User Account Profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 15 },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "balance": { "type": "number" },
+        "totalRecharge": { "type": "number" },
+        "totalWithdraw": { "type": "number" },
+        "vipLevel": { "type": "number" },
+        "kycStatus": { "type": "string", "enum": ["unverified", "pending", "verified", "rejected"] },
+        "panNumber": { "type": "string", "maxLength": 10 },
+        "aadhaarLast4": { "type": "string", "maxLength": 4 },
+        "bankAccount": { "type": "string", "maxLength": 30 },
+        "ifsc": { "type": "string", "maxLength": 15 },
+        "upiId": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "name", "phone", "role"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Financial Transaction Record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhone": { "type": "string" },
+        "type": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string" },
+        "date": { "type": "string" },
+        "method": { "type": "string" },
+        "utrNumber": { "type": "string" }
+      },
+      "required": ["id", "userId", "type", "amount", "status", "date"]
+    },
+    "Investment": {
+      "title": "Investment",
+      "description": "User Investment Plan Record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "planId": { "type": "string" },
+        "planName": { "type": "string" },
+        "amount": { "type": "number" },
+        "dailyIncome": { "type": "number" },
+        "totalReturn": { "type": "number" },
+        "duration": { "type": "number" },
+        "startDate": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "userId", "planId", "planName", "amount", "status"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "System Global Configuration",
+      "type": "object",
+      "properties": {
+        "minRecharge": { "type": "number" },
+        "minWithdrawal": { "type": "number" },
+        "gatewayStatus": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Individual user accounts and financial balances"
+    },
+    "/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "Deposit, withdrawal, and earning records"
+    },
+    "/investments/{investmentId}": {
+      "schema": { "$ref": "#/entities/Investment" },
+      "description": "Active and completed investment contracts"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/Settings" },
+      "description": "System and platform configurations"
+    }
+  }
+}

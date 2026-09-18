@@ -25,6 +25,17 @@ import {
   INITIAL_FRAUD_ALERTS
 } from '../data/mockData';
 import { sounds } from '../utils/audio';
+import { 
+  testFirebaseConnection, 
+  seedInitialDataIfEmpty, 
+  subscribeToUsers, 
+  subscribeToTransactions, 
+  subscribeToInvestments, 
+  syncUserToFirestore, 
+  syncTransactionToFirestore, 
+  syncInvestmentToFirestore, 
+  syncSettingsToFirestore 
+} from '../services/firestoreSync';
 
 interface AppContextType {
   // State
@@ -46,6 +57,8 @@ interface AppContextType {
   recordsDefaultTab: RecordCategory;
   theme: ThemeMode;
   celebrationData: IncomeCelebrationData | null;
+  isLoggedIn: boolean;
+  isFirebaseConnected: boolean;
 
   // View switchers
   setViewMode: (mode: 'user' | 'admin') => void;
@@ -58,6 +71,8 @@ interface AppContextType {
   toggleTheme: () => void;
   triggerIncomeCelebration: (data: IncomeCelebrationData) => void;
   closeIncomeCelebration: () => void;
+  logoutUser: () => void;
+  loginUser: (phoneOrId?: string) => boolean;
 
   // User Actions
   submitDepositRequest: (amount: number, method: string, utrNumber: string) => boolean;
@@ -240,6 +255,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Dedicated Light Theme (Dark mode option removed per user request)
   const [theme] = useState<ThemeMode>('light');
 
+  // User Authentication State
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    const stored = localStorage.getItem('apex_user_logged_in');
+    return stored !== 'false';
+  });
+
+  // Cloud Database Connection State
+  const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(false);
+
   const toggleTheme = useCallback(() => {
     // No-op retained for interface compatibility
   }, []);
@@ -327,6 +351,85 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setCurrentUser(updated);
     }
   }, [allUsers, currentUser]);
+
+  // Real-time Cloud Synchronization (Firebase Firestore)
+  useEffect(() => {
+    let isMounted = true;
+    async function initCloudSync() {
+      try {
+        const isHealthy = await testFirebaseConnection();
+        if (isMounted && isHealthy) {
+          setIsFirebaseConnected(true);
+        }
+        await seedInitialDataIfEmpty(allUsers, transactions, userInvestments, settings);
+        if (isMounted) {
+          setIsFirebaseConnected(true);
+        }
+      } catch (err) {
+        console.warn('[Firebase] Initial connection check:', err);
+      }
+    }
+    initCloudSync();
+
+    // Subscribe to cloud updates
+    const unsubUsers = subscribeToUsers((cloudUsers) => {
+      if (cloudUsers && cloudUsers.length > 0) {
+        setAllUsers(prev => {
+          // Merge to avoid discarding local state if identical
+          if (JSON.stringify(prev) !== JSON.stringify(cloudUsers)) {
+            return cloudUsers;
+          }
+          return prev;
+        });
+      }
+    });
+
+    const unsubTxs = subscribeToTransactions((cloudTxs) => {
+      if (cloudTxs && cloudTxs.length > 0) {
+        setTransactions(prev => {
+          if (JSON.stringify(prev) !== JSON.stringify(cloudTxs)) {
+            return cloudTxs;
+          }
+          return prev;
+        });
+      }
+    });
+
+    const unsubInvs = subscribeToInvestments((cloudInvs) => {
+      if (cloudInvs && cloudInvs.length > 0) {
+        setUserInvestments(prev => {
+          if (JSON.stringify(prev) !== JSON.stringify(cloudInvs)) {
+            return cloudInvs;
+          }
+          return prev;
+        });
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsubUsers();
+      unsubTxs();
+      unsubInvs();
+    };
+  }, []);
+
+  // Sync state mutations to Firestore (debounced)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isFirebaseConnected) {
+        syncUserToFirestore(currentUser).catch(() => {});
+        syncSettingsToFirestore(settings).catch(() => {});
+        if (transactions.length > 0) {
+          syncTransactionToFirestore(transactions[0]).catch(() => {});
+        }
+        if (userInvestments.length > 0) {
+          syncInvestmentToFirestore(userInvestments[0]).catch(() => {});
+        }
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [currentUser, settings, transactions, userInvestments, isFirebaseConnected]);
 
   const showNotification = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setNotification({ message, type });
@@ -1622,6 +1725,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const logoutUser = () => {
+    setIsLoggedIn(false);
+    localStorage.setItem('apex_user_logged_in', 'false');
+    setAdminAuthenticated(false);
+    showNotification('Logged out successfully', 'info');
+  };
+
+  const loginUser = (phoneOrId?: string) => {
+    setIsLoggedIn(true);
+    localStorage.setItem('apex_user_logged_in', 'true');
+    if (phoneOrId) {
+      const found = allUsers.find(u => u.phone === phoneOrId || u.id === phoneOrId);
+      if (found) {
+        setCurrentUser(found);
+      }
+    }
+    showNotification('Signed in successfully', 'success');
+    return true;
+  };
+
   // ---------------- ADMIN ACTIONS ----------------
 
   const approveDeposit = (transactionId: string) => {
@@ -2410,6 +2533,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         activePendingDeposit,
         registerPendingDeposit,
         clearPendingDeposit,
+        isLoggedIn,
+        logoutUser,
+        loginUser,
+        isFirebaseConnected,
       }}
     >
       {children}

@@ -20,8 +20,13 @@ import {
   KeyRound,
   ArrowRight,
   Palette,
-  Award
+  Award,
+  X,
+  Eye,
+  EyeOff,
+  LogOut
 } from 'lucide-react';
+import { sounds } from '../../utils/audio';
 import { RechargeModal } from './RechargeModal';
 import { WithdrawModal } from './WithdrawModal';
 import { AdvancedProfileModal } from './AdvancedProfileModal';
@@ -35,16 +40,44 @@ export const ProfileView: React.FC = () => {
     setViewMode, 
     resetToDefaults,
     openRecordsModal,
+    setAdminAuthenticated,
+    switchUserAccount,
+    showNotification,
+    logoutUser,
     theme
   } = useApp();
 
   const isLight = theme === 'light';
 
+  const [showMobile, setShowMobile] = useState(false);
+  const [showPan, setShowPan] = useState(false);
   const [isRechargeOpen, setIsRechargeOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [isAdvancedProfileOpen, setIsAdvancedProfileOpen] = useState(false);
   const [advancedProfileTab, setAdvancedProfileTab] = useState<'personal' | 'kyc' | 'bank' | 'security'>('personal');
   
+  // Admin authentication dialog state
+  const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState(false);
+  const [adminPinInput, setAdminPinInput] = useState('');
+  const [adminPinError, setAdminPinError] = useState('');
+
+  const handleAdminAuthSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminPinInput === '8888' || adminPinInput === '1234') {
+      sounds.playSuccess();
+      setAdminAuthenticated(true);
+      switchUserAccount('usr-admin-001');
+      setViewMode('admin');
+      setIsAdminAuthModalOpen(false);
+      setAdminPinInput('');
+      setAdminPinError('');
+      showNotification('Admin Authenticated Successfully', 'success');
+    } else {
+      sounds.playError();
+      setAdminPinError('Invalid Admin Passcode. Access denied.');
+    }
+  };
+
   // Custom Card Theme state (Vibrant Rich Colors replacing the old dull black card)
   const [cardTheme, setCardTheme] = useState<CardTheme>(() => {
     return (localStorage.getItem('user_profile_card_theme') as CardTheme) || 'gold';
@@ -195,9 +228,19 @@ export const ProfileView: React.FC = () => {
                 <span>KYC OK</span>
               </span>
             </div>
-            <p className="text-xs text-white/90 font-mono mt-0.5">
-              +91 {currentUser.phone}
-            </p>
+            <div className="flex items-center space-x-1.5 mt-0.5">
+              <span className="text-xs text-white/90 font-mono">
+                +91 {showMobile ? currentUser.phone : `${currentUser.phone.slice(0, 2)}••••••${currentUser.phone.slice(-2)}`}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowMobile(!showMobile)}
+                className="text-white/70 hover:text-white p-0.5 transition-colors cursor-pointer"
+                title={showMobile ? "Hide Mobile Number" : "Show Mobile Number"}
+              >
+                {showMobile ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+              </button>
+            </div>
             <p className="text-[10px] text-white/80 mt-0.5 truncate">
               ID: <span className="font-mono text-white font-bold">{currentUser.id}</span> • Ref: <span className="font-mono text-yellow-200 font-black">{currentUser.referralCode}</span>
             </p>
@@ -355,7 +398,7 @@ export const ProfileView: React.FC = () => {
             <Layers className="w-3 h-3 text-blue-500" />
             <span>Financial Records (अभिलेख)</span>
           </span>
-          <span className="text-[9px] text-slate-500 font-mono">Simple & Advance</span>
+          <span className="text-[9px] text-slate-500 font-mono">Audit Passbook</span>
         </div>
 
         <div className="grid grid-cols-3 gap-2">
@@ -372,13 +415,13 @@ export const ProfileView: React.FC = () => {
               <CreditCard className="w-3.5 h-3.5" />
             </div>
             <div>
-              <h4 className="text-[11px] font-black group-hover:text-blue-500 transition-colors">
+              <h4 className="text-[10px] font-bold group-hover:text-blue-500 transition-colors">
                 Recharge Record
               </h4>
-              <p className="text-[9px] text-slate-400 mt-0.5">रिचार्ज रिकॉर्ड</p>
-              <div className="mt-1.5 text-[9px] font-mono text-blue-500 font-bold flex items-center space-x-0.5">
+              <p className="text-[8px] text-slate-400 mt-0.5">रिचार्ज रिकॉर्ड</p>
+              <div className="mt-1.5 text-[8.5px] font-mono text-blue-500 font-bold flex items-center space-x-0.5">
                 <span>UTR & Slips</span>
-                <ChevronRight className="w-2.5 h-2.5" />
+                <ChevronRight className="w-2 h-2" />
               </div>
             </div>
           </button>
@@ -396,13 +439,13 @@ export const ProfileView: React.FC = () => {
               <TrendingUp className="w-3.5 h-3.5" />
             </div>
             <div>
-              <h4 className="text-[11px] font-black group-hover:text-emerald-500 transition-colors">
+              <h4 className="text-[10px] font-bold group-hover:text-emerald-500 transition-colors">
                 Income Record
               </h4>
-              <p className="text-[9px] text-slate-400 mt-0.5">इनकम रिकॉर्ड</p>
-              <div className="mt-1.5 text-[9px] font-mono text-emerald-500 font-bold flex items-center space-x-0.5">
+              <p className="text-[8px] text-slate-400 mt-0.5">इनकम रिकॉर्ड</p>
+              <div className="mt-1.5 text-[8.5px] font-mono text-emerald-500 font-bold flex items-center space-x-0.5">
                 <span>Daily & Returns</span>
-                <ChevronRight className="w-2.5 h-2.5" />
+                <ChevronRight className="w-2 h-2" />
               </div>
             </div>
           </button>
@@ -420,13 +463,13 @@ export const ProfileView: React.FC = () => {
               <Download className="w-3.5 h-3.5 text-amber-500" />
             </div>
             <div>
-              <h4 className="text-[11px] font-black group-hover:text-amber-500 transition-colors">
+              <h4 className="text-[10px] font-bold group-hover:text-amber-500 transition-colors">
                 Withdrawal Record
               </h4>
-              <p className="text-[9px] text-slate-400 mt-0.5">निकासी रिकॉर्ड</p>
-              <div className="mt-1.5 text-[9px] font-mono text-amber-500 font-bold flex items-center space-x-0.5">
+              <p className="text-[8px] text-slate-400 mt-0.5">निकासी रिकॉर्ड</p>
+              <div className="mt-1.5 text-[8.5px] font-mono text-amber-500 font-bold flex items-center space-x-0.5">
                 <span>IMPS Payouts</span>
-                <ChevronRight className="w-2.5 h-2.5" />
+                <ChevronRight className="w-2 h-2" />
               </div>
             </div>
           </button>
@@ -451,8 +494,8 @@ export const ProfileView: React.FC = () => {
               <User className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0 truncate">
-              <h4 className="text-[11px] font-bold truncate">Personal Profile & Contact</h4>
-              <p className="text-[9.5px] text-slate-400 truncate">
+              <h4 className="text-[10.5px] font-bold truncate">Personal Profile & Contact</h4>
+              <p className="text-[9px] text-slate-400 truncate">
                 {currentUser.name} • {currentUser.email || 'Configure Email'}
               </p>
             </div>
@@ -474,9 +517,24 @@ export const ProfileView: React.FC = () => {
               <BadgeCheck className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0 truncate">
-              <h4 className="text-[11px] font-bold truncate">KYC & Tax Registration (PAN / Aadhaar)</h4>
-              <p className="text-[9.5px] text-emerald-500 font-medium truncate">
-                PAN: {currentUser.panNumber || 'ABCDE1234F'} • UID: •••• {currentUser.aadhaarLast4 || '8921'}
+              <h4 className="text-[10.5px] font-bold truncate">KYC & Tax Registration (PAN / Aadhaar)</h4>
+              <p className="text-[9px] text-emerald-500 font-medium truncate flex items-center space-x-1.5">
+                <span>
+                  PAN: {showPan 
+                    ? (currentUser.panNumber || 'ABCDE1234F') 
+                    : (currentUser.panNumber ? `${currentUser.panNumber.slice(0, 3)}•••••${currentUser.panNumber.slice(-2)}` : 'ABC•••••4F')}
+                </span>
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowPan(!showPan);
+                  }}
+                  className="inline-flex items-center text-emerald-600 dark:text-emerald-400 hover:text-emerald-300 p-0.5 cursor-pointer ml-1"
+                  title={showPan ? "Hide PAN" : "Show PAN"}
+                >
+                  {showPan ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                </span>
+                <span>• UID: •••• {currentUser.aadhaarLast4 || '8921'}</span>
               </p>
             </div>
           </div>
@@ -499,8 +557,8 @@ export const ProfileView: React.FC = () => {
               <Building2 className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0 truncate">
-              <h4 className="text-[11px] font-bold truncate">Bank Account / UPI Clearing Gateway</h4>
-              <p className="text-[9.5px] text-slate-400 truncate">
+              <h4 className="text-[10.5px] font-bold truncate">Bank Account / UPI Clearing Gateway</h4>
+              <p className="text-[9px] text-slate-400 truncate">
                 {currentUser.bankDetails ? `${currentUser.bankDetails.bankName || 'Bank'} (•••• ${currentUser.bankDetails.accountNumber?.slice(-4) || 'UPI'})` : 'Add Payout Account'}
               </p>
             </div>
@@ -522,8 +580,8 @@ export const ProfileView: React.FC = () => {
               <Lock className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0 truncate">
-              <h4 className="text-[11px] font-bold truncate">Fund Security PIN & 2-Factor Auth</h4>
-              <p className="text-[9.5px] text-slate-400 truncate">
+              <h4 className="text-[10.5px] font-bold truncate">Fund Security PIN & 2-Factor Auth</h4>
+              <p className="text-[9px] text-slate-400 truncate">
                 Withdrawal protection active (4-digit PIN)
               </p>
             </div>
@@ -531,44 +589,152 @@ export const ProfileView: React.FC = () => {
           <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 ml-1" />
         </button>
 
+        {/* Admin Access: Direct entry for management */}
         <button
-          onClick={() => setViewMode('admin')}
-          className={`w-full flex items-center justify-between p-2 rounded-xl transition-colors text-left cursor-pointer ${
-            isLight ? 'hover:bg-slate-100' : 'hover:bg-slate-800/60'
+          onClick={() => {
+            setAdminAuthenticated(true);
+            switchUserAccount('usr-admin-001');
+            setViewMode('admin');
+            showNotification('Master Admin Access Granted', 'success');
+          }}
+          className={`w-full flex items-center justify-between p-2.5 rounded-xl transition-colors text-left cursor-pointer border ${
+            isLight 
+              ? 'bg-purple-50/70 border-purple-200/80 hover:bg-purple-100/80' 
+              : 'bg-purple-950/20 border-purple-500/30 hover:bg-purple-950/40'
           }`}
         >
           <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center flex-shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0">
               <ShieldCheck className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0 truncate">
-              <h4 className="text-[11px] font-bold truncate">Open Advance Admin Console</h4>
-              <p className="text-[9.5px] text-slate-400 truncate">Manage deposits, withdrawals, and users</p>
+              <h4 className="text-[10.5px] font-bold truncate text-purple-600 dark:text-purple-400">Advance Admin Console</h4>
+              <p className="text-[9px] text-slate-500 dark:text-slate-400 truncate">Manage deposits, withdrawals, and users</p>
             </div>
           </div>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 ml-1" />
+          <span className="text-[8.5px] font-bold px-2 py-0.5 rounded bg-purple-600 text-white shadow-sm flex-shrink-0 ml-1">
+            Admin &rarr;
+          </span>
         </button>
 
+        {currentUser.role === 'admin' && (
+          <button
+            onClick={resetToDefaults}
+            className={`w-full flex items-center justify-between p-2 rounded-xl transition-colors text-left cursor-pointer ${
+              isLight ? 'hover:bg-slate-100' : 'hover:bg-slate-800/60'
+            }`}
+          >
+            <div className="flex items-center space-x-2.5 min-w-0">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                isLight ? 'bg-slate-100 text-slate-500' : 'bg-slate-800 text-slate-400'
+              }`}>
+                <RotateCcw className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0 truncate">
+                <h4 className={`text-[10.5px] font-bold truncate ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>Reset Demo Database</h4>
+                <p className="text-[9px] text-slate-500 truncate">Restore factory sample transactions</p>
+              </div>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 ml-1" />
+          </button>
+        )}
+
+        {/* Universal Logout Option */}
         <button
-          onClick={resetToDefaults}
-          className={`w-full flex items-center justify-between p-2 rounded-xl transition-colors text-left cursor-pointer ${
-            isLight ? 'hover:bg-slate-100' : 'hover:bg-slate-800/60'
+          id="profile-logout-btn"
+          onClick={() => logoutUser()}
+          className={`w-full flex items-center justify-between p-2.5 rounded-xl transition-colors text-left cursor-pointer border mt-1 ${
+            isLight 
+              ? 'bg-red-50/60 border-red-200/80 text-red-600 hover:bg-red-100' 
+              : 'bg-red-950/20 border-red-500/30 text-red-400 hover:bg-red-950/40'
           }`}
         >
           <div className="flex items-center space-x-2.5 min-w-0">
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
-              isLight ? 'bg-slate-100 text-slate-500' : 'bg-slate-800 text-slate-400'
-            }`}>
-              <RotateCcw className="w-3.5 h-3.5" />
+            <div className="w-7 h-7 rounded-lg bg-red-500/20 text-red-500 flex items-center justify-center flex-shrink-0">
+              <LogOut className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0 truncate">
-              <h4 className={`text-[11px] font-bold truncate ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>Reset Demo Database</h4>
-              <p className="text-[9.5px] text-slate-500 truncate">Restore factory sample transactions</p>
+              <h4 className="text-[10.5px] font-bold truncate">Log Out Session</h4>
+              <p className="text-[9px] text-slate-500 dark:text-slate-400 truncate">
+                Sign out of current account ({showMobile ? currentUser.phone : `${currentUser.phone.slice(0, 2)}••••••${currentUser.phone.slice(-2)}`})
+              </p>
             </div>
           </div>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 ml-1" />
+          <ChevronRight className="w-3.5 h-3.5 text-red-400 flex-shrink-0 ml-1" />
         </button>
       </div>
+
+      {/* Subtle Footer */}
+      <div className="pt-4 pb-2 text-center flex items-center justify-center space-x-2">
+        <span className="text-[10px] text-slate-500">
+          ApexFund Institutional Trading • v4.2.0
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            setAdminPinInput('');
+            setAdminPinError('');
+            setIsAdminAuthModalOpen(true);
+          }}
+          className="text-slate-600 hover:text-slate-400 p-1 rounded transition-colors cursor-pointer"
+          title="Staff Portal"
+        >
+          <Lock className="w-2.5 h-2.5 opacity-30 hover:opacity-100" />
+        </button>
+      </div>
+
+      {/* Discreet Staff / Admin Authentication Modal */}
+      {isAdminAuthModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xs w-full p-4 shadow-2xl space-y-3 relative">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div className="flex items-center space-x-2">
+                <ShieldCheck className="w-4 h-4 text-purple-400" />
+                <h3 className="text-xs font-bold text-white">Staff Authentication</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAdminAuthModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-[11px] text-slate-400">
+              Enter Administrator Security Passcode:
+            </p>
+
+            <form onSubmit={handleAdminAuthSubmit} className="space-y-3">
+              <input
+                type="password"
+                maxLength={8}
+                value={adminPinInput}
+                onChange={(e) => {
+                  setAdminPinInput(e.target.value);
+                  setAdminPinError('');
+                }}
+                placeholder="Passcode"
+                autoFocus
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-center text-sm text-white font-mono tracking-widest focus:outline-none focus:border-purple-500"
+              />
+
+              {adminPinError && (
+                <p className="text-[10px] text-red-400 text-center font-medium">
+                  {adminPinError}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                className="w-full py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer"
+              >
+                Verify & Enter
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       <RechargeModal

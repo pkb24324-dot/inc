@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   FileText, 
   Download, 
@@ -9,7 +9,9 @@ import {
   TrendingUp, 
   Building2,
   Calendar,
-  Share2
+  Share2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Transaction } from '../../../types';
 import { sounds } from '../../../utils/audio';
@@ -39,6 +41,7 @@ export const OfficialStatementModal: React.FC<Props> = ({
   onExportCsv,
   onNotify
 }) => {
+  const [showMobile, setShowMobile] = useState(false);
   if (!isOpen) return null;
 
   // Calculate formal financial summary
@@ -155,7 +158,19 @@ export const OfficialStatementModal: React.FC<Props> = ({
             </div>
             <div>
               <span className="text-[10px] text-slate-400 block font-sans">Registered Mobile</span>
-              <span className="font-bold text-slate-900 dark:text-white">{currentUser.phone}</span>
+              <div className="flex items-center space-x-1">
+                <span className="font-bold text-slate-900 dark:text-white">
+                  +91 {showMobile ? currentUser.phone : `${currentUser.phone.slice(0, 2)}••••••${currentUser.phone.slice(-2)}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowMobile(!showMobile)}
+                  className="text-slate-400 hover:text-blue-500 p-0.5 cursor-pointer"
+                  title={showMobile ? "Hide Mobile" : "Show Mobile"}
+                >
+                  {showMobile ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                </button>
+              </div>
             </div>
             <div>
               <span className="text-[10px] text-slate-400 block font-sans">Member ID</span>

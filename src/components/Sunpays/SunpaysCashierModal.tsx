@@ -32,7 +32,7 @@ export const SunpaysCashierModal: React.FC<Props> = ({
   initialAmount = 700,
   onSuccess,
 }) => {
-  const { currentUser, settings, showNotification } = useApp();
+  const { currentUser, settings, showNotification, submitDepositRequest } = useApp();
 
   const [amount, setAmount] = useState<number>(initialAmount);
   const [method, setMethod] = useState<'upi' | 'bank' | 'usdt'>('upi');
@@ -40,7 +40,7 @@ export const SunpaysCashierModal: React.FC<Props> = ({
   const [customerPhone, setCustomerPhone] = useState(currentUser?.phone || '9876543210');
   const [customerEmail, setCustomerEmail] = useState('user@sunpays.business');
   
-  const [stage, setStage] = useState<'form' | 'processing' | 'awaiting' | 'success'>('form');
+  const [stage, setStage] = useState<'form' | 'processing' | 'awaiting' | 'submitted' | 'success'>('form');
   const [orderId, setOrderId] = useState<string>('');
   const [checkoutUrl, setCheckoutUrl] = useState<string>('');
   const [utrInput, setUtrInput] = useState<string>('');
@@ -142,7 +142,7 @@ export const SunpaysCashierModal: React.FC<Props> = ({
     }
   };
 
-  const handleManualUtrSubmit = async () => {
+  const handleManualUtrSubmit = () => {
     const clean = utrInput.trim();
     if (clean.length < 10) {
       showNotification('Please enter a valid 12-digit UPI Reference / UTR Number', 'warning');
@@ -152,22 +152,15 @@ export const SunpaysCashierModal: React.FC<Props> = ({
     setIsVerifyingUtr(true);
     sounds.playCash();
 
-    // Notify backend
-    try {
-      await fetch(`/api/sunpays/check-order?orderId=${encodeURIComponent(orderId)}&action=complete&utr=${encodeURIComponent(clean)}&amount=${amount}`);
-    } catch {
-      // proceed
-    }
-
-    setTimeout(() => {
-      setIsVerifyingUtr(false);
-      setStage('success');
+    const ok = submitDepositRequest(amount, 'Sunpays UPI', clean);
+    setIsVerifyingUtr(false);
+    if (ok) {
+      setStage('submitted');
       sounds.playSuccess();
       setTimeout(() => {
-        onSuccess(orderId, amount, clean, 'Sunpays Gateway (ttpay.business)');
         onClose();
-      }, 1500);
-    }, 1200);
+      }, 2500);
+    }
   };
 
   return (
@@ -324,8 +317,8 @@ export const SunpaysCashierModal: React.FC<Props> = ({
         {stage === 'processing' && (
           <div className="py-12 text-center space-y-3">
             <RefreshCw className="w-10 h-10 text-amber-400 animate-spin mx-auto" />
-            <div className="text-white font-bold text-sm">Generating Secure Payment Link...</div>
-            <div className="text-xs text-slate-400">Connecting to high-speed clearance rail</div>
+            <div className="text-white font-bold text-sm">Connecting to Secure Banking Gateway...</div>
+            <div className="text-xs text-slate-400">Initiating high-speed clearance rail</div>
           </div>
         )}
 
@@ -405,6 +398,32 @@ export const SunpaysCashierModal: React.FC<Props> = ({
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* STAGE: SUBMITTED (PENDING ADMIN VERIFICATION) */}
+        {stage === 'submitted' && (
+          <div className="py-8 text-center space-y-3">
+            <div className="w-14 h-14 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto border border-blue-500/40">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+            <div className="text-xl font-black text-white">Deposit Request Submitted!</div>
+            <p className="text-xs text-slate-300">
+              Payment reference <span className="font-mono text-amber-400 font-bold">{utrInput}</span> has been received.
+            </p>
+            <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl max-w-xs mx-auto text-left space-y-1">
+              <div className="flex justify-between text-xs text-slate-400">
+                <span>Amount:</span>
+                <span className="font-bold text-white font-mono">₹{amount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-xs text-slate-400">
+                <span>Status:</span>
+                <span className="font-bold text-amber-400">Pending Verification</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Admin will verify the transaction and credit funds to your balance.
+            </p>
           </div>
         )}
 

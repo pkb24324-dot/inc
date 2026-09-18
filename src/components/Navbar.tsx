@@ -6,7 +6,9 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Info,
-  TrendingUp
+  TrendingUp,
+  ShieldCheck,
+  Database
 } from 'lucide-react';
 import { ProfessionalAmount } from './common/ProfessionalAmount';
 
@@ -16,7 +18,11 @@ export const Navbar: React.FC = () => {
     viewMode, 
     setViewMode, 
     notification,
-    settings
+    settings,
+    setAdminAuthenticated,
+    switchUserAccount,
+    showNotification,
+    isFirebaseConnected
   } = useApp();
 
   return (
@@ -69,6 +75,13 @@ export const Navbar: React.FC = () => {
                 <span className="text-[10px] font-medium text-emerald-300">Gateway Online</span>
               </div>
             )}
+
+            {/* Cloud Database Indicator */}
+            <div className="hidden lg:flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-800/80 border border-slate-700/80 text-slate-300">
+              <Database className="w-2.5 h-2.5 text-blue-400" />
+              <span className={`w-1.5 h-1.5 rounded-full ${isFirebaseConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              <span>{isFirebaseConnected ? 'Cloud DB' : 'Connecting DB'}</span>
+            </div>
 
             {/* Back to User App Button (Visible ONLY when in Admin Mode) */}
             {viewMode === 'admin' && (

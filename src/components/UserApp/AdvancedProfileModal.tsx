@@ -36,9 +36,11 @@ export const AdvancedProfileModal: React.FC<Props> = ({ isOpen, onClose, initial
   const [name, setName] = useState(currentUser.name);
   const [email, setEmail] = useState(currentUser.email || `${currentUser.phone}@capital-invest.in`);
   const [phone] = useState(currentUser.phone);
+  const [showPhone, setShowPhone] = useState(false);
 
   // KYC
   const [panNumber, setPanNumber] = useState(currentUser.panNumber || 'ABCDE1234F');
+  const [showPanInput, setShowPanInput] = useState(false);
   const [aadhaarLast4, setAadhaarLast4] = useState(currentUser.aadhaarLast4 || '8921');
   const [kycSubmitted, setKycSubmitted] = useState(currentUser.kycStatus === 'verified');
 
@@ -134,12 +136,12 @@ export const AdvancedProfileModal: React.FC<Props> = ({ isOpen, onClose, initial
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-base font-black font-['Outfit']">Advanced Profile & Security</h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <h3 className="text-xs sm:text-sm font-black font-['Outfit']">Advanced Profile & Security</h3>
+                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                   Level 2 Verified
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">
                 KYC Identity, Banking Payout Account & Security Keys
               </p>
             </div>
@@ -239,14 +241,26 @@ export const AdvancedProfileModal: React.FC<Props> = ({ isOpen, onClose, initial
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Registered Phone (Read-Only)</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-400">Registered Phone (Encrypted)</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPhone(!showPhone)}
+                      className="text-[10px] text-blue-500 dark:text-blue-400 hover:underline flex items-center space-x-1 cursor-pointer"
+                    >
+                      {showPhone ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      <span>{showPhone ? 'Hide' : 'Show'}</span>
+                    </button>
+                  </div>
                   <div className="relative">
                     <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                     <input
                       type="text"
                       disabled
-                      value={`+91 ${phone}`}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-700 bg-slate-800/60 text-slate-400 font-mono text-sm cursor-not-allowed"
+                      value={showPhone ? `+91 ${phone}` : `+91 ${phone.slice(0, 2)}••••••${phone.slice(-2)}`}
+                      className={`w-full pl-9 pr-3 py-2.5 rounded-xl border font-mono text-xs cursor-not-allowed ${
+                        isLight ? 'bg-slate-100 border-slate-300 text-slate-600' : 'bg-slate-800/60 border-slate-700 text-slate-400'
+                      }`}
                     />
                   </div>
                 </div>
@@ -297,19 +311,47 @@ export const AdvancedProfileModal: React.FC<Props> = ({ isOpen, onClose, initial
 
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">PAN Card Number (10 Digits)</label>
-                  <input
-                    type="text"
-                    maxLength={10}
-                    value={panNumber}
-                    onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
-                    className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-mono uppercase tracking-wider font-bold transition-all ${
-                      isLight ? 'bg-slate-50 border-slate-300 text-slate-900' : 'bg-slate-900 border-slate-700 text-white'
-                    }`}
-                    placeholder="e.g. ABCDE1234F"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-400">PAN Card Number (10 Digits)</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPanInput(!showPanInput)}
+                      className="text-[11px] text-blue-400 hover:text-blue-300 flex items-center space-x-1 cursor-pointer"
+                    >
+                      {showPanInput ? (
+                        <>
+                          <EyeOff className="w-3 h-3" />
+                          <span>Hide PAN</span>
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="w-3 h-3" />
+                          <span>Show PAN</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showPanInput ? "text" : "password"}
+                      maxLength={10}
+                      value={panNumber}
+                      onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
+                      className={`w-full px-3.5 pr-10 py-2.5 rounded-xl border text-sm font-mono uppercase tracking-wider font-bold transition-all ${
+                        isLight ? 'bg-slate-50 border-slate-300 text-slate-900' : 'bg-slate-900 border-slate-700 text-white'
+                      }`}
+                      placeholder="e.g. ABCDE1234F"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPanInput(!showPanInput)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 p-1"
+                    >
+                      {showPanInput ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                   <span className="text-[10px] text-slate-500 mt-1 block">
-                    Used for TDS clearance and automated ₹50,000+ daily payout limits.
+                    NSDL Encrypted. Hidden by default for privacy & TDS clearance.
                   </span>
                 </div>
 
