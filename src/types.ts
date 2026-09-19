@@ -120,6 +120,7 @@ export type AdminTab =
   | 'dashboard' 
   | 'deposits' 
   | 'withdrawals' 
+  | 'treasury'
   | 'users' 
   | 'plans' 
   | 'fraud' 

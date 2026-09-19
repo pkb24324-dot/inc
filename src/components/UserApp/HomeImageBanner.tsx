@@ -52,7 +52,7 @@ const BANNER_SLIDES: BannerSlide[] = [
     badge: 'Clean Energy Infrastructure',
     badgeIcon: Sun,
     badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30',
-    title: 'Solar & Wind Energy\nHigh-Yield Dividends',
+    title: 'Solar & Wind Energy\nDaily Profit Dividends',
     subtitle: 'Government-supported solar farms generating stable, passive daily payouts.',
     highlight: 'Fixed Daily ROI',
     guaranteeText: 'Zero-Risk Capital Protection',
@@ -67,7 +67,7 @@ const BANNER_SLIDES: BannerSlide[] = [
     badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30',
     title: 'Precision Robotics &\nMicrochip Production',
     subtitle: 'State-of-the-art semiconductor lines with premium investor profit sharing.',
-    highlight: 'VIP Multiplier Yields',
+    highlight: 'VIP Multiplier Returns',
     guaranteeText: 'Automated Credit Every 24h',
     actionText: '👑 VIP Portfolios',
     targetTab: 'vip'

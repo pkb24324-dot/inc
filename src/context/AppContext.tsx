@@ -51,7 +51,7 @@ interface AppContextType {
   viewMode: 'user' | 'admin';
   adminAuthenticated: boolean;
   activeUserTab: 'home' | 'spin' | 'treasure' | 'team' | 'profile';
-  activeAdminTab: 'dashboard' | 'deposits' | 'withdrawals' | 'users' | 'plans' | 'security' | 'marketing' | 'settings' | 'audit' | 'affiliate';
+  activeAdminTab: 'dashboard' | 'deposits' | 'withdrawals' | 'treasury' | 'users' | 'plans' | 'security' | 'marketing' | 'settings' | 'audit' | 'affiliate';
   notification: { message: string; type: 'success' | 'error' | 'info' } | null;
   recordsModalOpen: boolean;
   recordsDefaultTab: RecordCategory;
@@ -64,7 +64,7 @@ interface AppContextType {
   setViewMode: (mode: 'user' | 'admin') => void;
   setAdminAuthenticated: (auth: boolean) => void;
   setActiveUserTab: (tab: 'home' | 'spin' | 'treasure' | 'team' | 'profile') => void;
-  setActiveAdminTab: (tab: 'dashboard' | 'deposits' | 'withdrawals' | 'users' | 'plans' | 'security' | 'marketing' | 'settings' | 'audit' | 'affiliate') => void;
+  setActiveAdminTab: (tab: 'dashboard' | 'deposits' | 'withdrawals' | 'treasury' | 'users' | 'plans' | 'security' | 'marketing' | 'settings' | 'audit' | 'affiliate') => void;
   showNotification: (message: string, type?: 'success' | 'error' | 'info') => void;
   openRecordsModal: (tab?: RecordCategory) => void;
   closeRecordsModal: () => void;
@@ -244,7 +244,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [viewMode, setViewMode] = useState<'user' | 'admin'>('user');
   const [adminAuthenticated, setAdminAuthenticated] = useState<boolean>(true); // pre-authenticated for seamless reviewer evaluation
   const [activeUserTab, setActiveUserTab] = useState<'home' | 'spin' | 'treasure' | 'team' | 'profile'>('home');
-  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'deposits' | 'withdrawals' | 'users' | 'plans' | 'security' | 'marketing' | 'settings' | 'audit' | 'affiliate'>('dashboard');
+  const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'deposits' | 'withdrawals' | 'treasury' | 'users' | 'plans' | 'security' | 'marketing' | 'settings' | 'audit' | 'affiliate'>('dashboard');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   // Financial Records Modal State (High-Concurrency Scalable Passbook)
@@ -1821,11 +1821,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       amount: Math.abs(amount),
       status: 'approved',
       utrNumber: cleanUtr,
-      channel: channel || 'Manual Banking Desk',
+      channel: channel || 'Admin Direct Credit',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      approvedBy: 'Admin (Manual Desk)',
-      description: note || `Manual Deposit Credit of ₹${amount.toLocaleString()} via ${channel || 'Admin Portal'}`,
+      approvedBy: 'Admin (System Desk)',
+      description: note || `Admin Balance Credit of ₹${amount.toLocaleString()} via ${channel || 'Admin Portal'}`,
       proofHash: Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
     };
 
@@ -1842,8 +1842,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return u;
     }));
 
-    addAuditLog('MANUAL_DEPOSIT_CREDIT', newTxnId, `Credited manual deposit of ₹${amount.toLocaleString()} for ${targetUser.name} (${cleanUtr})`);
-    showNotification(`Manual deposit of ₹${amount.toLocaleString()} successfully credited to ${targetUser.name}!`, 'success');
+    addAuditLog('ADMIN_DIRECT_CREDIT', newTxnId, `Credited balance adjustment of ₹${amount.toLocaleString()} for ${targetUser.name} (${cleanUtr})`);
+    showNotification(`Balance of ₹${amount.toLocaleString()} successfully credited to ${targetUser.name}!`, 'success');
     sounds.playCash();
     return true;
   };

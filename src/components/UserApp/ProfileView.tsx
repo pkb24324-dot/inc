@@ -589,33 +589,35 @@ export const ProfileView: React.FC = () => {
           <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 ml-1" />
         </button>
 
-        {/* Admin Access: Direct entry for management */}
-        <button
-          onClick={() => {
-            setAdminAuthenticated(true);
-            switchUserAccount('usr-admin-001');
-            setViewMode('admin');
-            showNotification('Master Admin Access Granted', 'success');
-          }}
-          className={`w-full flex items-center justify-between p-2.5 rounded-xl transition-colors text-left cursor-pointer border ${
-            isLight 
-              ? 'bg-purple-50/70 border-purple-200/80 hover:bg-purple-100/80' 
-              : 'bg-purple-950/20 border-purple-500/30 hover:bg-purple-950/40'
-          }`}
-        >
-          <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0">
-              <ShieldCheck className="w-3.5 h-3.5" />
+        {/* Admin Access: Only visible to users with role === 'admin' */}
+        {currentUser.role === 'admin' && (
+          <button
+            onClick={() => {
+              setAdminAuthenticated(true);
+              switchUserAccount('usr-admin-001');
+              setViewMode('admin');
+              showNotification('Master Admin Access Granted', 'success');
+            }}
+            className={`w-full flex items-center justify-between p-2.5 rounded-xl transition-colors text-left cursor-pointer border ${
+              isLight 
+                ? 'bg-purple-50/70 border-purple-200/80 hover:bg-purple-100/80' 
+                : 'bg-purple-950/20 border-purple-500/30 hover:bg-purple-950/40'
+            }`}
+          >
+            <div className="flex items-center space-x-2.5 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0">
+                <ShieldCheck className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0 truncate">
+                <h4 className="text-[10.5px] font-bold truncate text-purple-600 dark:text-purple-400">Advance Admin Console</h4>
+                <p className="text-[9px] text-slate-500 dark:text-slate-400 truncate">Manage deposits, withdrawals, and users</p>
+              </div>
             </div>
-            <div className="min-w-0 truncate">
-              <h4 className="text-[10.5px] font-bold truncate text-purple-600 dark:text-purple-400">Advance Admin Console</h4>
-              <p className="text-[9px] text-slate-500 dark:text-slate-400 truncate">Manage deposits, withdrawals, and users</p>
-            </div>
-          </div>
-          <span className="text-[8.5px] font-bold px-2 py-0.5 rounded bg-purple-600 text-white shadow-sm flex-shrink-0 ml-1">
-            Admin &rarr;
-          </span>
-        </button>
+            <span className="text-[8.5px] font-bold px-2 py-0.5 rounded bg-purple-600 text-white shadow-sm flex-shrink-0 ml-1">
+              Admin &rarr;
+            </span>
+          </button>
+        )}
 
         {currentUser.role === 'admin' && (
           <button
@@ -667,7 +669,7 @@ export const ProfileView: React.FC = () => {
       {/* Subtle Footer */}
       <div className="pt-4 pb-2 text-center flex items-center justify-center space-x-2">
         <span className="text-[10px] text-slate-500">
-          ApexFund Institutional Trading • v4.2.0
+          AM invest Institutional Trading • v4.2.0
         </span>
         <button
           type="button"

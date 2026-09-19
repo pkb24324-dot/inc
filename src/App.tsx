@@ -16,6 +16,7 @@ import { sounds } from './utils/audio';
 
 const MainApp: React.FC = () => {
   const { 
+    currentUser,
     viewMode, 
     activeUserTab, 
     adminAuthenticated, 
@@ -87,8 +88,8 @@ const MainApp: React.FC = () => {
           <IncomeCongratulationsModal />
         </div>
       ) : (
-        /* Admin Mode */
-        !adminAuthenticated ? (
+        /* Admin Mode - Restricted to authenticated admin role */
+        (!adminAuthenticated || currentUser.role !== 'admin') ? (
           <div className="flex-1 flex items-center justify-center p-4">
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-6 text-center animate-in zoom-in-95">
               

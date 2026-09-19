@@ -201,10 +201,10 @@ export const DepositApprovals: React.FC = () => {
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setShowManualModal(true)}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/20 transition-all active:scale-95"
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/20 transition-all active:scale-95 cursor-pointer"
           >
             <PlusCircle className="w-3.5 h-3.5" />
-            <span>+ Manual Credit</span>
+            <span>+ Admin Balance Credit</span>
           </button>
           
           <button
@@ -790,7 +790,7 @@ export const DepositApprovals: React.FC = () => {
         </div>
       )}
 
-      {/* Manual Deposit Creator Modal */}
+      {/* Direct Balance Credit Modal */}
       {showManualModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
           <div className={`border rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 ${
@@ -799,7 +799,7 @@ export const DepositApprovals: React.FC = () => {
             <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center space-x-2">
                 <PlusCircle className="w-5 h-5 text-blue-500" />
-                <h3 className="font-extrabold text-base">Direct Manual Balance Credit</h3>
+                <h3 className="font-extrabold text-base">Direct Investor Balance Adjustment</h3>
               </div>
               <button
                 onClick={() => setShowManualModal(false)}

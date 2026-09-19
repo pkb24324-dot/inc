@@ -133,7 +133,7 @@ export const OfficialStatementModal: React.FC<Props> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <span className="text-base sm:text-lg font-black font-['Outfit'] tracking-tight text-blue-600 dark:text-blue-400">
-                  BHARAT CLEAN ENERGY INFRASTRUCTURE
+                  AM INVEST FINANCIAL INFRASTRUCTURE
                 </span>
                 <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30 font-mono">
                   NPCI CLEARING GATEWAY

@@ -14,6 +14,7 @@ import {
   CreditCard,
   Lock,
   ArrowRight,
+  ArrowLeft,
   Globe,
   FileText,
   RotateCcw,
@@ -100,8 +101,40 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
   const formRef = useRef<HTMLFormElement>(null);
   const quickAmounts = [500, 700, 1500, 3800, 7500, 15000];
   const [channelTab, setChannelTab] = useState<'upi' | 'qr' | 'netbanking'>('upi');
-  const [utrInput, setUtrInput] = useState<string>('');
-  const [copiedUpi, setCopiedUpi] = useState(false);
+  const [isIframeLoading, setIsIframeLoading] = useState(true);
+  const [iframeKey, setIframeKey] = useState(0);
+
+  // Helper to submit the payment POST directly to the in-app iframe
+  const submitInAppPost = (postUrl: string, params: Record<string, string>) => {
+    setIsIframeLoading(true);
+    setTimeout(() => {
+      try {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = postUrl;
+        form.target = 'watchpay-inapp-iframe';
+        form.style.display = 'none';
+
+        Object.entries(params).forEach(([k, v]) => {
+          const inp = document.createElement('input');
+          inp.type = 'hidden';
+          inp.name = k;
+          inp.value = v;
+          form.appendChild(inp);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+        setTimeout(() => {
+          if (document.body.contains(form)) {
+            document.body.removeChild(form);
+          }
+        }, 1000);
+      } catch (err) {
+        console.warn('In-app form submission:', err);
+      }
+    }, 150);
+  };
 
   const handleSuccessCallback = (utr: string, note: string) => {
     if (onSuccess) {
@@ -123,6 +156,7 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
       setLastPolledAt(null);
       setIsVerifying(false);
       setPayInfoUrl(null);
+      setIsIframeLoading(true);
 
       const data = buildWatchPayDepositPayload({
         merchantNo: activeMerchantNo,
@@ -140,7 +174,7 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
     }
   }, [isOpen, selectedAmount, activeMerchantNo, activePayKey, activePayType, activeDomain]);
 
-  // DIRECT PAYMENT TRIGGER: When user selects amount and presses Pay Button
+  // DIRECT PAYMENT TRIGGER: When user selects amount and presses Pay Button (IN-APP)
   const handleDirectPay = (amtToPay: number = selectedAmount) => {
     sounds.playClick();
     const finalOrderId = `ORD${Math.floor(Date.now() / 1000)}${Math.floor(1000 + Math.random() * 9000)}`;
@@ -164,33 +198,9 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
     // 2. Register pending deposit in app state
     registerPendingDeposit(finalOrderId, amtToPay, `WatchPay Native (pay_type: ${activePayType})`);
 
-    // 3. Immediately trigger form POST or window navigation directly to WatchPay checkout
-    try {
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = data.postActionUrl;
-      form.target = '_blank';
-      form.style.display = 'none';
-
-      Object.entries(data.postParams).forEach(([k, v]) => {
-        const inp = document.createElement('input');
-        inp.type = 'hidden';
-        inp.name = k;
-        inp.value = v;
-        form.appendChild(inp);
-      });
-
-      document.body.appendChild(form);
-      form.submit();
-      setTimeout(() => {
-        if (document.body.contains(form)) {
-          document.body.removeChild(form);
-        }
-      }, 1000);
-    } catch (err) {
-      console.warn('Form submission fallback:', err);
-      window.open(data.cashierUrl, '_blank', 'noopener,noreferrer');
-    }
+    // 3. Immediately switch to In-App Awaiting stage (opens INSIDE the app)
+    setStage('awaiting');
+    submitInAppPost(data.postActionUrl, data.postParams);
 
     // 4. Background registration with server API
     fetch('/api/watchpay/create-order', {
@@ -288,29 +298,112 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
   const seconds = secondsLeft % 60;
   const timerDisplay = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
-  // Submit 12-digit UTR payment proof for admin verification
-  // Prevents unauthorized wallet balance additions: creates a pending deposit request
-  const handleSubmitPaymentProof = () => {
-    const cleanUtr = utrInput.trim();
-    if (!cleanUtr || cleanUtr.length < 10) {
-      showNotification('Please enter a valid 12-digit UPI UTR / Reference Number', 'warning');
-      return;
-    }
+  // If in awaiting payment stage, render the full-screen official payment checkout
+  if (stage === 'awaiting') {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 animate-in fade-in duration-200">
+        {/* Hidden POST form for official WatchPay Gateway submission (/pay/web) */}
+        <form
+          ref={formRef}
+          method="POST"
+          action={postActionUrl}
+          target="watchpay-inapp-iframe"
+          className="hidden"
+        >
+          {Object.entries(postParams).map(([key, val]) => (
+            <input key={key} type="hidden" name={key} value={val} />
+          ))}
+        </form>
 
-    setIsVerifying(true);
-    sounds.playCash();
+        {/* Official Bank/Gateway Browser Header Bar */}
+        <div className="bg-slate-900 border-b border-slate-800 px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2 flex-shrink-0">
+          {/* Back/Close Action */}
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm('Are you sure you want to cancel this payment?')) {
+                sounds.playClick();
+                setStage('select');
+              }
+            }}
+            className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors flex items-center space-x-1.5 cursor-pointer text-xs font-semibold"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden xs:inline">Cancel</span>
+          </button>
 
-    const ok = submitDepositRequest(selectedAmount, 'WatchPay UPI', cleanUtr);
-    setIsVerifying(false);
-    if (ok) {
-      clearPendingDeposit();
-      setStage('submitted');
-      sounds.playSuccess();
-      setTimeout(() => {
-        onClose();
-      }, 2500);
-    }
-  };
+          {/* Authentic Bank URL Security Bar (indistinguishable from native browser) */}
+          <div className="flex-1 max-w-md mx-auto flex items-center space-x-2 px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-full text-xs">
+            <Lock className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+            <span className="text-emerald-400 font-mono text-[11px] truncate select-all">
+              https://secure.fastclearing.in/checkout?ref={orderId}
+            </span>
+            <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold uppercase tracking-wider flex-shrink-0">
+              256-BIT SSL
+            </span>
+          </div>
+
+          {/* Right Header: Amount & Reload */}
+          <div className="flex items-center space-x-2 flex-shrink-0">
+            <div className="text-right hidden sm:block">
+              <span className="text-[10px] text-slate-400 block leading-tight">Payable</span>
+              <span className="text-xs font-black text-white font-mono">₹{selectedAmount.toLocaleString()}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIframeKey((k) => k + 1);
+                setIsIframeLoading(true);
+                sounds.playClick();
+                submitInAppPost(postActionUrl, postParams);
+              }}
+              className="p-1.5 sm:p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              title="Refresh Payment Page"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Full-Screen Pure Gateway Frame */}
+        <div className="relative flex-1 w-full bg-white overflow-hidden">
+          {isIframeLoading && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white space-y-3 p-4">
+              <div className="w-10 h-10 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+              <div className="text-sm font-bold text-slate-800">Connecting to Secure Banking Gateway...</div>
+              <div className="text-xs text-slate-500">Securing payment connection • Please do not close</div>
+            </div>
+          )}
+
+          <iframe
+            name="watchpay-inapp-iframe"
+            id="watchpay-inapp-iframe"
+            key={iframeKey}
+            src={payInfoUrl || cashierUrl}
+            onLoad={() => setIsIframeLoading(false)}
+            className="w-full h-full border-0 bg-white"
+            allow="payment; camera; clipboard-write; clipboard-read"
+            sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-modals allow-top-navigation-by-user-activation"
+            title="Official Bank Checkout"
+          />
+        </div>
+
+        {/* Subtle Minimal Footer Strip */}
+        <div className="bg-slate-900 border-t border-slate-800 px-3 sm:px-4 py-2 flex items-center justify-between text-[11px] text-slate-400 flex-shrink-0">
+          <div className="flex items-center space-x-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="truncate">
+              Order Ref: <strong className="text-white font-mono">{orderId}</strong> • Auto-crediting upon completion
+            </span>
+          </div>
+          <div className="flex items-center space-x-2 flex-shrink-0">
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <span className="font-mono text-amber-400 font-bold">{timerDisplay}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
@@ -328,7 +421,7 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
         ))}
       </form>
 
-      <div className="bg-slate-900 border border-slate-700/80 rounded-3xl max-w-md w-full shadow-2xl overflow-hidden relative my-auto">
+      <div className="bg-slate-900 border border-slate-700/80 rounded-3xl w-full shadow-2xl overflow-hidden relative my-auto max-w-md">
         
         {/* Compact Top Header */}
         <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
@@ -411,32 +504,6 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
             </div>
           )}
 
-          {/* 1B. SUBMITTED STATE (PENDING ADMIN VERIFICATION) */}
-          {stage === 'submitted' && (
-            <div className="py-6 text-center space-y-2.5 animate-in zoom-in-95 duration-200">
-              <div className="w-14 h-14 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center justify-center mx-auto shadow-lg shadow-blue-500/20">
-                <Clock className="w-8 h-8" />
-              </div>
-              <h3 className="text-base font-black text-white">Deposit Request Submitted!</h3>
-              <p className="text-xs text-slate-300 max-w-xs mx-auto">
-                Payment reference <span className="font-mono text-amber-400 font-bold">{utrInput}</span> has been received.
-              </p>
-              <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl max-w-xs mx-auto text-left space-y-1">
-                <div className="flex justify-between text-xs text-slate-400">
-                  <span>Amount:</span>
-                  <span className="font-bold text-white font-mono">₹{selectedAmount.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-xs text-slate-400">
-                  <span>Status:</span>
-                  <span className="font-bold text-amber-400">Pending Verification</span>
-                </div>
-              </div>
-              <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
-                Admin will verify your payment and credit the funds to your balance.
-              </p>
-            </div>
-          )}
-
           {/* 2. SELECT AMOUNT & ADVANCED CHANNELS (STEP 1) */}
           {stage === 'select' && (
             <>
@@ -452,7 +519,7 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
                   }`}
                 >
                   <Smartphone className="w-3 h-3" />
-                  <span>UPI Fast</span>
+                  <span>UPI Express</span>
                 </button>
                 <button
                   type="button"
@@ -463,8 +530,8 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  <QrCode className="w-3 h-3" />
-                  <span>Instant QR</span>
+                  <Zap className="w-3 h-3" />
+                  <span>PhonePe/GPay</span>
                 </button>
                 <button
                   type="button"
@@ -550,67 +617,6 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
                 )}
               </div>
 
-              {/* Instant Dynamic QR Mode (If Selected) */}
-              {channelTab === 'qr' && (
-                <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 text-center space-y-2">
-                  <div className="text-[11px] font-bold text-white flex items-center justify-center space-x-1">
-                    <QrCode className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Scan with Any UPI App (GPay / PhonePe / Paytm)</span>
-                  </div>
-                  
-                  {/* Generated Dynamic QR Canvas SVG */}
-                  <div className="w-36 h-36 mx-auto bg-white p-2 rounded-xl shadow-inner flex items-center justify-center relative">
-                    <svg viewBox="0 0 100 100" className="w-full h-full">
-                      {/* Stylized QR pattern */}
-                      <rect x="0" y="0" width="30" height="30" fill="#0f172a" rx="4" />
-                      <rect x="5" y="5" width="20" height="20" fill="#ffffff" rx="2" />
-                      <rect x="9" y="9" width="12" height="12" fill="#0f172a" rx="1" />
-                      
-                      <rect x="70" y="0" width="30" height="30" fill="#0f172a" rx="4" />
-                      <rect x="75" y="5" width="20" height="20" fill="#ffffff" rx="2" />
-                      <rect x="79" y="9" width="12" height="12" fill="#0f172a" rx="1" />
-
-                      <rect x="0" y="70" width="30" height="30" fill="#0f172a" rx="4" />
-                      <rect x="5" y="75" width="20" height="20" fill="#ffffff" rx="2" />
-                      <rect x="9" y="79" width="12" height="12" fill="#0f172a" rx="1" />
-
-                      {/* Micro QR Data Dots */}
-                      <rect x="36" y="8" width="6" height="6" fill="#0f172a" />
-                      <rect x="46" y="14" width="6" height="6" fill="#0f172a" />
-                      <rect x="56" y="8" width="6" height="6" fill="#0f172a" />
-                      <rect x="36" y="24" width="6" height="6" fill="#0f172a" />
-                      <rect x="56" y="24" width="6" height="6" fill="#0f172a" />
-                      <rect x="12" y="44" width="6" height="6" fill="#0f172a" />
-                      <rect x="24" y="54" width="6" height="6" fill="#0f172a" />
-                      <rect x="72" y="44" width="6" height="6" fill="#0f172a" />
-                      <rect x="84" y="54" width="6" height="6" fill="#0f172a" />
-                      <rect x="36" y="72" width="6" height="6" fill="#0f172a" />
-                      <rect x="56" y="84" width="6" height="6" fill="#0f172a" />
-
-                      {/* Center Rupee Badge */}
-                      <circle cx="50" cy="50" r="14" fill="#059669" />
-                      <text x="50" y="56" fill="#ffffff" fontSize="16" fontWeight="bold" textAnchor="middle">₹</text>
-                    </svg>
-                  </div>
-
-                  <div className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-[10px] font-mono">
-                    <span className="text-slate-400 truncate">VPA: watchpay.mch@yesbank</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText('watchpay.mch@yesbank');
-                        setCopiedUpi(true);
-                        setTimeout(() => setCopiedUpi(false), 2000);
-                      }}
-                      className="text-emerald-400 hover:text-emerald-300 font-bold ml-2 cursor-pointer flex items-center space-x-0.5"
-                    >
-                      {copiedUpi ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedUpi ? 'Copied' : 'Copy'}</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* PRIMARY PAY BUTTON */}
               <div className="space-y-1.5 pt-1">
                 <button
@@ -628,118 +634,6 @@ export const WatchPayCashierModal: React.FC<WatchPayCashierModalProps> = ({
                 </div>
               </div>
             </>
-          )}
-
-          {/* 3. AWAITING PAYMENT (COMPACT & ADVANCED) */}
-          {stage === 'awaiting' && (
-            <div className="space-y-3 animate-in fade-in duration-200">
-              <div className="bg-gradient-to-b from-emerald-950/40 via-slate-900 to-slate-950 p-3.5 rounded-2xl border border-emerald-500/40 shadow-lg space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400 flex items-center space-x-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                    <span>WatchPay Cashier Active</span>
-                  </span>
-                  <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 truncate max-w-[120px]">
-                    {orderId}
-                  </span>
-                </div>
-
-                <p className="text-xs text-slate-200 leading-normal">
-                  The payment window has opened. Complete your transfer of <strong className="text-emerald-400">₹{selectedAmount.toLocaleString()}</strong> using UPI or NetBanking.
-                </p>
-
-                <div className="pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => handleDirectPay(selectedAmount)}
-                    className="w-full py-2.5 px-4 rounded-xl btn-chamko-emerald text-white font-bold text-xs flex items-center justify-center space-x-1.5 transition-all active:scale-98 cursor-pointer shadow-md shadow-emerald-600/20"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5 stroke-[2.5]" />
-                    <span>Re-open Payment Window</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* UTR VERIFICATION SUBMISSION BOX */}
-              <div className="bg-slate-950 rounded-2xl p-3 border border-slate-800 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-white flex items-center space-x-1">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Submit 12-Digit UTR / Ref Number</span>
-                  </span>
-                  <span className="text-[9px] text-amber-400 font-mono">Verification Required</span>
-                </div>
-                <p className="text-[10px] text-slate-400">
-                  After paying in your UPI app, enter the 12-digit UTR from your payment receipt for admin verification.
-                </p>
-
-                <div className="flex space-x-1.5">
-                  <input
-                    type="text"
-                    maxLength={12}
-                    value={utrInput}
-                    onChange={(e) => setUtrInput(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Enter 12-digit UTR number"
-                    className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSubmitPaymentProof}
-                    disabled={isVerifying || utrInput.trim().length < 6}
-                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50 flex items-center space-x-1"
-                  >
-                    {isVerifying ? (
-                      <>
-                        <RefreshCw className="w-3 h-3 animate-spin" />
-                        <span>Submitting...</span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Submit UTR</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Security Notice: Verified Banking Protocol */}
-              <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 text-[10px] text-slate-400 space-y-1">
-                <div className="flex items-center space-x-1.5 text-amber-400 font-semibold">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Verified Settlement Protocol</span>
-                </div>
-                <p>
-                  Funds will be credited to your wallet balance once payment confirmation is verified through banking reconciliation.
-                </p>
-              </div>
-
-              {/* Compact Auto-Poller Status Strip */}
-              <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-[10px]">
-                <div className="flex items-center space-x-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-slate-300 font-medium">Gateway Polling Status:</span>
-                </div>
-                <span className="text-emerald-400 font-mono font-bold">
-                  {gatewayStatus === 'checking' ? 'SYNCING...' : 'ONLINE ACTIVE'}
-                </span>
-              </div>
-
-              {/* Return to Amount Selection */}
-              <div className="pt-0.5 flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    sounds.playClick();
-                    setStage('select');
-                  }}
-                  className="text-[11px] text-slate-400 hover:text-white flex items-center space-x-1 px-2.5 py-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>Change Amount</span>
-                </button>
-              </div>
-            </div>
           )}
 
         </div>

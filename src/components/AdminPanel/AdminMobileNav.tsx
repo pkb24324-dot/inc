@@ -19,7 +19,8 @@ import {
   Smartphone,
   ChevronUp,
   Zap,
-  TrendingUp
+  TrendingUp,
+  Landmark
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
@@ -59,7 +60,8 @@ export const AdminMobileNav: React.FC<AdminMobileNavProps> = ({
   };
 
   const moreModules = [
-    { id: 'plans', label: 'Plans & ROI', icon: Package, color: 'text-purple-400' },
+    { id: 'treasury', label: 'Treasury & Liquidity', icon: Landmark, color: 'text-emerald-400' },
+    { id: 'plans', label: 'Plans & Returns', icon: Package, color: 'text-purple-400' },
     { 
       id: 'security', 
       label: 'Security & Risk', 

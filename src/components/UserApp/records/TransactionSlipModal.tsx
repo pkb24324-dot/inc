@@ -281,7 +281,7 @@ Reason / Query: Please expedite bank verification for this transaction.`;
           <div className="flex space-x-2">
             <button
               onClick={() => {
-                const slipSummary = `*OFFICIAL BHARAT ENERGY PAYMENT SLIP*
+                const slipSummary = `*OFFICIAL AM INVEST PAYMENT SLIP*
 Ref Order: ${txn.orderId || txn.id}
 Amount: ₹${txn.amount}
 Type: ${txn.type}

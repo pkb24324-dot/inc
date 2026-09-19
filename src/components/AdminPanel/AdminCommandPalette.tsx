@@ -200,7 +200,7 @@ export const AdminCommandPalette: React.FC<AdminCommandPaletteProps> = ({
                   </div>
                   <div>
                     <div className="font-bold text-slate-800 dark:text-slate-200">Force Dividend Run</div>
-                    <div className="text-[10px] text-slate-400">Credit all active ROI yield</div>
+                    <div className="text-[10px] text-slate-400">Credit all active daily returns</div>
                   </div>
                 </button>
 
@@ -469,7 +469,7 @@ export const AdminCommandPalette: React.FC<AdminCommandPaletteProps> = ({
         <div className={`p-3 border-t text-[11px] text-slate-400 flex items-center justify-between ${
           isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950/80 border-slate-800'
         }`}>
-          <span>⚡ Apex Command Deck • Instant Platform Telemetry</span>
+          <span>⚡ AM invest Command Deck • Instant Platform Telemetry</span>
           <span className="hidden sm:inline font-mono">Press Esc to exit</span>
         </div>
       </div>

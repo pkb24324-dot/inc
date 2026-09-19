@@ -296,11 +296,11 @@ export const HomeView: React.FC = () => {
       {activeTab === 'flash' && (
         <div className="bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-2xl space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-[11px] text-amber-400 flex items-center space-x-1">
-              <Zap className="w-3.5 h-3.5 fill-amber-400" />
+            <span className="font-semibold text-[8.5px] sm:text-[9.5px] text-amber-300 flex items-center space-x-1 tracking-tight">
+              <Zap className="w-2.5 h-2.5 fill-amber-400" />
               <span>⚡ Flash Fast-Return Plans (1 Minute - 1 Hour)</span>
             </span>
-            <span className="text-[9.5px] bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">
+            <span className="text-[9px] bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">
               Instant Liquidity
             </span>
           </div>
@@ -320,7 +320,7 @@ export const HomeView: React.FC = () => {
                 className={`py-1.5 rounded-lg text-[10px] font-bold transition-all ${
                   flashFilter === filter.id
                     ? 'bg-amber-400 text-slate-950 shadow-sm font-black'
-                    : 'bg-slate-900/80 text-slate-400 hover:text-slate-200 border border-slate-800'
+                    : 'bg-slate-800/80 text-slate-300 hover:text-white border border-slate-700/70'
                 }`}
               >
                 {filter.label}
@@ -330,12 +330,12 @@ export const HomeView: React.FC = () => {
         </div>
       )}
 
-      {/* Investment Plans List (Exact match to screenshot card structure) */}
+      {/* Investment Plans List (Clean elevated surface without black background) */}
       <div className="space-y-4">
         {filteredPlans.map((plan) => (
           <div
             key={plan.id}
-            className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-lg relative overflow-hidden group hover:border-slate-700 transition-all"
+            className="bg-slate-800/65 border border-slate-700/60 rounded-2xl p-3.5 shadow-md relative overflow-hidden group hover:border-blue-500/50 hover:bg-slate-800/85 transition-all backdrop-blur-sm"
           >
             {/* Ribbon Badge (Top Right) */}
             <div className="absolute top-0 right-0">
@@ -347,13 +347,13 @@ export const HomeView: React.FC = () => {
 
             <div className="flex gap-3 items-center">
               {/* Product Visual Container */}
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl bg-slate-950 border border-slate-800 overflow-hidden flex-shrink-0 relative group-hover:scale-102 transition-transform">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl bg-slate-700/40 border border-slate-600/50 overflow-hidden flex-shrink-0 relative group-hover:scale-102 transition-transform">
                 <img
                   src={plan.imageUrl}
                   alt={plan.name}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute bottom-1 right-1 bg-black/75 backdrop-blur-xs text-[8.5px] font-mono text-amber-300 font-bold px-1.5 py-0.2 rounded border border-amber-500/20">
+                <div className="absolute bottom-1 right-1 bg-slate-900/90 backdrop-blur-xs text-[8.5px] font-mono text-amber-300 font-bold px-1.5 py-0.5 rounded-md border border-amber-500/30">
                   {getDurationLabel(plan)}
                 </div>
               </div>
@@ -379,8 +379,8 @@ export const HomeView: React.FC = () => {
 
                 {/* Return Stats Cards (Matches screenshot Daily vs Total pills) */}
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between bg-slate-950/70 border border-slate-800/80 px-2 py-1 rounded-lg">
-                    <div className="flex items-center space-x-1 text-slate-400 text-[10.5px] font-medium">
+                  <div className="flex items-center justify-between bg-slate-700/35 border border-slate-600/40 px-2.5 py-1 rounded-lg">
+                    <div className="flex items-center space-x-1 text-slate-300 text-[10.5px] font-medium">
                       <TrendingUp className="w-3 h-3 text-blue-400" />
                       <span>{plan.category === 'flash' ? 'Settlement' : 'Daily'}</span>
                     </div>
@@ -392,8 +392,8 @@ export const HomeView: React.FC = () => {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between bg-slate-950/70 border border-slate-800/80 px-2 py-1 rounded-lg">
-                    <div className="flex items-center space-x-1 text-slate-400 text-[10.5px] font-medium">
+                  <div className="flex items-center justify-between bg-slate-700/35 border border-slate-600/40 px-2.5 py-1 rounded-lg">
+                    <div className="flex items-center space-x-1 text-slate-300 text-[10.5px] font-medium">
                       <Zap className="w-3 h-3 text-amber-400" />
                       <span>{plan.category === 'flash' ? 'Net Profit' : 'Total'}</span>
                     </div>

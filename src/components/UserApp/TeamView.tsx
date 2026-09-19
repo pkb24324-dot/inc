@@ -173,7 +173,7 @@ export const TeamView: React.FC = () => {
     { minTeam: 5, rank: 'Senior Promoter', dailySalary: 180, color: 'text-indigo-500', badge: 'Tier II' },
     { minTeam: 15, rank: 'Agency Manager', dailySalary: 500, color: 'text-amber-500', badge: 'Tier III' },
     { minTeam: 30, rank: 'Regional Director', dailySalary: 1200, color: 'text-emerald-500', badge: 'Tier IV' },
-    { minTeam: 50, rank: 'Apex Ambassador', dailySalary: 3000, color: 'text-purple-500', badge: 'VIP Master' },
+    { minTeam: 50, rank: 'AM Ambassador', dailySalary: 3000, color: 'text-purple-500', badge: 'VIP Master' },
   ];
 
   const currentSalaryTier = [...salaryTiers].reverse().find(t => totalNetworkCount >= t.minTeam) || null;
@@ -886,7 +886,7 @@ export const TeamView: React.FC = () => {
         ) : (
           /* --- INTERACTIVE 3-TIER NETWORK HIERARCHY TREE --- */
           <div className="space-y-3 pt-1">
-            {/* Apex Sponsor: You */}
+            {/* AM Sponsor: You */}
             <div className={`p-3.5 rounded-2xl border ${
               isLight ? 'bg-indigo-50/70 border-indigo-200' : 'bg-indigo-950/30 border-indigo-500/30'
             }`}>
@@ -897,7 +897,7 @@ export const TeamView: React.FC = () => {
                   </div>
                   <div>
                     <span className={`text-xs font-black block ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                      {currentUser.name} (Apex Sponsor)
+                      {currentUser.name} (AM Sponsor)
                     </span>
                     <span className="text-[10px] text-slate-400 font-mono">
                       Code: {currentUser.referralCode} • VIP {currentUser.vipLevel}

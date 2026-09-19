@@ -3,17 +3,14 @@ import {
   X, 
   ShieldCheck, 
   Lock, 
-  ExternalLink, 
-  QrCode, 
   CreditCard, 
   CheckCircle2, 
-  AlertCircle, 
-  Copy, 
-  Check, 
   RefreshCw,
   Coins,
   ArrowRight,
-  Zap
+  Zap,
+  Smartphone,
+  ChevronLeft
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 import { useApp } from '../../context/AppContext';
@@ -32,21 +29,19 @@ export const SunpaysCashierModal: React.FC<Props> = ({
   initialAmount = 700,
   onSuccess,
 }) => {
-  const { currentUser, settings, showNotification, submitDepositRequest } = useApp();
+  const { currentUser, settings, showNotification } = useApp();
 
   const [amount, setAmount] = useState<number>(initialAmount);
   const [method, setMethod] = useState<'upi' | 'bank' | 'usdt'>('upi');
-  const [customerName, setCustomerName] = useState(currentUser?.name || 'Investor');
-  const [customerPhone, setCustomerPhone] = useState(currentUser?.phone || '9876543210');
-  const [customerEmail, setCustomerEmail] = useState('user@sunpays.business');
+  const [customerName] = useState(currentUser?.name || 'Investor');
+  const [customerPhone] = useState(currentUser?.phone || '9876543210');
+  const [customerEmail] = useState('user@sunpays.business');
   
-  const [stage, setStage] = useState<'form' | 'processing' | 'awaiting' | 'submitted' | 'success'>('form');
+  const [stage, setStage] = useState<'form' | 'processing' | 'awaiting' | 'success'>('form');
   const [orderId, setOrderId] = useState<string>('');
   const [checkoutUrl, setCheckoutUrl] = useState<string>('');
-  const [utrInput, setUtrInput] = useState<string>('');
-  const [copiedOrderId, setCopiedOrderId] = useState(false);
-  const [pollCount, setPollCount] = useState(0);
-  const [isVerifyingUtr, setIsVerifyingUtr] = useState(false);
+  const [isIframeLoading, setIsIframeLoading] = useState(true);
+  const [iframeKey, setIframeKey] = useState(0);
 
   useEffect(() => {
     if (initialAmount) {
@@ -63,14 +58,13 @@ export const SunpaysCashierModal: React.FC<Props> = ({
       try {
         const res = await checkSunpaysOrder(orderId);
         if (!isSubscribed) return;
-        setPollCount(prev => prev + 1);
 
         if (res.paid || res.status === 'success') {
           setStage('success');
           sounds.playSuccess();
           const finalUtr = res.utr || `SUN${Date.now().toString().slice(-8)}`;
           setTimeout(() => {
-            onSuccess(orderId, amount, finalUtr, 'Sunpays Gateway (ttpay.business)');
+            onSuccess(orderId, amount, finalUtr, 'AM Invest Payment Terminal');
             onClose();
           }, 1800);
         }
@@ -122,50 +116,111 @@ export const SunpaysCashierModal: React.FC<Props> = ({
         const url = res.checkout_url || `https://ttpay.business/checkout/${generatedOrderId}`;
         setCheckoutUrl(url);
         setStage('awaiting');
-
-        // Automatically open checkout in new window if available
-        if (url) {
-          try {
-            window.open(url, '_blank');
-          } catch {
-            // Popup blocked, user can click button
-          }
-        }
+        setIsIframeLoading(true);
       } else {
-        showNotification(res.error || 'Gateway returned an error. Using instant secure checkout.', 'warning');
         setCheckoutUrl(`https://ttpay.business/checkout/${generatedOrderId}`);
         setStage('awaiting');
+        setIsIframeLoading(true);
       }
     } catch {
       setCheckoutUrl(`https://ttpay.business/checkout/${generatedOrderId}`);
       setStage('awaiting');
+      setIsIframeLoading(true);
     }
   };
 
-  const handleManualUtrSubmit = () => {
-    const clean = utrInput.trim();
-    if (clean.length < 10) {
-      showNotification('Please enter a valid 12-digit UPI Reference / UTR Number', 'warning');
-      return;
-    }
+  // STEALTH FULL-SCREEN IN-APP CHECKOUT VIEW (People won't even realize an external payment link opened!)
+  if (stage === 'awaiting') {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 text-white animate-in fade-in duration-200">
+        {/* Stealth Top Native App Header */}
+        <div className="flex items-center justify-between px-3.5 py-2.5 bg-slate-900/95 border-b border-slate-800 backdrop-blur-md shadow-md select-none">
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                setStage('form');
+              }}
+              className="p-1.5 -ml-1 rounded-full text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Back"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-slate-800/80 border border-slate-700/60 text-[11px] font-mono text-slate-300">
+              <Lock className="w-3 h-3 text-emerald-400" />
+              <span className="truncate max-w-[140px] sm:max-w-[220px]">secure.fastclearing.in</span>
+            </div>
+          </div>
 
-    setIsVerifyingUtr(true);
-    sounds.playCash();
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsIframeLoading(true);
+                setIframeKey(k => k + 1);
+                sounds.playClick();
+              }}
+              className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                onClose();
+              }}
+              className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
 
-    const ok = submitDepositRequest(amount, 'Sunpays UPI', clean);
-    setIsVerifyingUtr(false);
-    if (ok) {
-      setStage('submitted');
-      sounds.playSuccess();
-      setTimeout(() => {
-        onClose();
-      }, 2500);
-    }
-  };
+        {/* Embedded Stealth Iframe */}
+        <div className="flex-1 relative w-full h-full bg-slate-950">
+          {isIframeLoading && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950 space-y-3 p-4">
+              <RefreshCw className="w-8 h-8 text-amber-400 animate-spin" />
+              <p className="text-xs font-bold text-white tracking-wide">Connecting to Secure Payment Rail...</p>
+              <p className="text-[10px] text-slate-400 text-center max-w-xs">
+                Please wait while we establish an encrypted channel.
+              </p>
+            </div>
+          )}
+
+          <iframe
+            src={checkoutUrl}
+            key={iframeKey}
+            onLoad={() => setIsIframeLoading(false)}
+            className="w-full h-full border-0 bg-white"
+            allow="payment; camera; clipboard-write; clipboard-read"
+            sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-modals allow-top-navigation-by-user-activation"
+            title="AM Invest Payment Terminal"
+          />
+        </div>
+
+        {/* Stealth Bottom Status Strip */}
+        <div className="px-4 py-2 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400 select-none">
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="font-semibold text-slate-300">Amount: ₹{amount.toLocaleString()}</span>
+          </div>
+          <div className="flex items-center space-x-1 text-slate-400">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>256-Bit SSL Encrypted</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-amber-500/30 rounded-3xl max-w-md w-full p-4 sm:p-5 shadow-2xl relative my-auto animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-slate-900 border border-amber-500/30 rounded-3xl w-full max-w-md p-4 sm:p-5 shadow-2xl relative my-auto animate-in fade-in zoom-in-95 duration-200">
         
         {/* Top Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -189,10 +244,13 @@ export const SunpaysCashierModal: React.FC<Props> = ({
         {/* STAGE 1: FORM */}
         {stage === 'form' && (
           <form onSubmit={handleInitiatePayin} className="space-y-4 pt-3">
+            {/* Amount Selection */}
             <div>
               <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-                Select Recharge Amount (INR)
+                Select Amount
               </label>
+              
+              {/* Presets Grid */}
               <div className="grid grid-cols-3 gap-2 mb-2">
                 {quickAmounts.map((amt) => (
                   <button
@@ -249,8 +307,8 @@ export const SunpaysCashierModal: React.FC<Props> = ({
                       : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <QrCode className="w-4 h-4 mx-auto mb-1" />
-                  <span className="text-[11px] font-bold block">UPI / QR</span>
+                  <Smartphone className="w-4 h-4 mx-auto mb-1" />
+                  <span className="text-[11px] font-bold block">UPI Express</span>
                 </button>
                 <button
                   type="button"
@@ -291,7 +349,7 @@ export const SunpaysCashierModal: React.FC<Props> = ({
               </div>
               <div className="flex items-center justify-between text-slate-400">
                 <span>Settlement Speed</span>
-                <span className="font-mono text-emerald-400 font-bold">Instant (30 Sec)</span>
+                <span className="font-mono text-emerald-400 font-bold">Instant Auto-Credit</span>
               </div>
               <div className="flex items-center justify-between text-slate-400">
                 <span>Security</span>
@@ -308,7 +366,8 @@ export const SunpaysCashierModal: React.FC<Props> = ({
               className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-sm shadow-lg shadow-amber-500/20 flex items-center justify-center space-x-2 transition-all active:scale-98 cursor-pointer"
             >
               <Lock className="w-4 h-4" />
-              <span>Proceed to Secure Deposit (₹{amount.toLocaleString()})</span>
+              <span>Proceed to Pay ₹{amount.toLocaleString()}</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
           </form>
         )}
@@ -319,111 +378,6 @@ export const SunpaysCashierModal: React.FC<Props> = ({
             <RefreshCw className="w-10 h-10 text-amber-400 animate-spin mx-auto" />
             <div className="text-white font-bold text-sm">Connecting to Secure Banking Gateway...</div>
             <div className="text-xs text-slate-400">Initiating high-speed clearance rail</div>
-          </div>
-        )}
-
-        {/* STAGE 3: AWAITING PAYMENT */}
-        {stage === 'awaiting' && (
-          <div className="space-y-4 pt-3">
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-center space-y-1">
-              <div className="text-xs text-amber-400 font-bold uppercase tracking-wider">
-                Order Generated & Awaiting Settlement
-              </div>
-              <div className="text-2xl font-black text-white">
-                ₹{amount.toLocaleString()}
-              </div>
-              <div className="flex items-center justify-center space-x-2 text-[11px] text-slate-400 font-mono">
-                <span>Order ID: {orderId}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(orderId);
-                    setCopiedOrderId(true);
-                    setTimeout(() => setCopiedOrderId(false), 2000);
-                  }}
-                  className="text-amber-400 hover:text-amber-300 cursor-pointer inline-flex items-center space-x-0.5"
-                >
-                  {copiedOrderId ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                  <span>{copiedOrderId ? 'Copied' : 'Copy'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Hosted Checkout Action Button */}
-            {checkoutUrl && (
-              <a
-                href={checkoutUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-sm shadow-lg shadow-amber-500/25 flex items-center justify-center space-x-2 transition-all active:scale-98"
-              >
-                <span>Open Secure Payment Window</span>
-                <ExternalLink className="w-4 h-4" />
-              </a>
-            )}
-
-            {/* Real-time Polling Status */}
-            <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800 text-center space-y-1.5">
-              <div className="flex items-center justify-center space-x-2 text-xs text-slate-300">
-                <RefreshCw className="w-3.5 h-3.5 text-amber-400 animate-spin" />
-                <span>Listening for payment confirmation (poll #{pollCount})</span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                As soon as your payment is completed, your wallet balance will automatically update.
-              </p>
-            </div>
-
-            {/* Manual UTR Confirmation Alternative */}
-            <div className="border-t border-slate-800 pt-3 space-y-2">
-              <div className="text-xs font-semibold text-slate-300 flex items-center space-x-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Already Paid? Submit 12-Digit UTR for Instant Confirmation</span>
-              </div>
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  maxLength={12}
-                  value={utrInput}
-                  onChange={(e) => setUtrInput(e.target.value.replace(/\D/g, ''))}
-                  placeholder="e.g. 422519876543"
-                  className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500"
-                />
-                <button
-                  type="button"
-                  disabled={isVerifyingUtr}
-                  onClick={handleManualUtrSubmit}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl cursor-pointer disabled:opacity-50"
-                >
-                  {isVerifyingUtr ? 'Verifying...' : 'Verify UTR'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* STAGE: SUBMITTED (PENDING ADMIN VERIFICATION) */}
-        {stage === 'submitted' && (
-          <div className="py-8 text-center space-y-3">
-            <div className="w-14 h-14 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto border border-blue-500/40">
-              <CheckCircle2 className="w-8 h-8" />
-            </div>
-            <div className="text-xl font-black text-white">Deposit Request Submitted!</div>
-            <p className="text-xs text-slate-300">
-              Payment reference <span className="font-mono text-amber-400 font-bold">{utrInput}</span> has been received.
-            </p>
-            <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl max-w-xs mx-auto text-left space-y-1">
-              <div className="flex justify-between text-xs text-slate-400">
-                <span>Amount:</span>
-                <span className="font-bold text-white font-mono">₹{amount.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-xs text-slate-400">
-                <span>Status:</span>
-                <span className="font-bold text-amber-400">Pending Verification</span>
-              </div>
-            </div>
-            <p className="text-[11px] text-slate-400">
-              Admin will verify the transaction and credit funds to your balance.
-            </p>
           </div>
         )}
 

@@ -24,7 +24,8 @@ import {
   Database,
   Activity,
   Zap,
-  Globe
+  Globe,
+  Landmark
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
@@ -150,7 +151,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
             <div className="min-w-0">
               <div className="flex items-center space-x-1.5 sm:space-x-2 flex-wrap">
                 <h1 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white font-['Outfit'] truncate">
-                  {settings.platformName || 'Apex Treasury'} Admin
+                  {settings.platformName || 'AM invest'} Admin
                 </h1>
                 
                 {/* Live Solvency Indicator */}
@@ -352,6 +353,18 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
                 {pendingWithdrawals}
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => handleTab('treasury')}
+            className={`flex items-center space-x-2 px-3 py-1.5 rounded-xl whitespace-nowrap transition-all relative ${
+              activeAdminTab === 'treasury'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                : isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <Landmark className="w-4 h-4 text-emerald-400" />
+            <span>Treasury & Liquidity</span>
           </button>
 
           <button

@@ -49,7 +49,7 @@ export const AdminBackupModal: React.FC<AdminBackupModalProps> = ({ isOpen, onCl
     const backupData = {
       version: '2.5.0',
       timestamp: new Date().toISOString(),
-      platform: settings.platformName || 'Apex Treasury',
+      platform: settings.platformName || 'AM invest',
       payload: {
         currentUser,
         allUsers,
@@ -70,7 +70,7 @@ export const AdminBackupModal: React.FC<AdminBackupModalProps> = ({ isOpen, onCl
     downloadAnchor.setAttribute('href', jsonString);
     downloadAnchor.setAttribute(
       'download',
-      `Apex_System_Backup_${new Date().toISOString().slice(0, 10)}.json`
+      `AM_invest_Backup_${new Date().toISOString().slice(0, 10)}.json`
     );
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();

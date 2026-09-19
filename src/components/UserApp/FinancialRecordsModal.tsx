@@ -431,16 +431,6 @@ export const FinancialRecordsModal: React.FC<Props> = ({
             </div>
 
             <button
-              onClick={() => setIsStatementOpen(true)}
-              title="Official Statement"
-              className={`p-1.5 rounded-lg border text-xs font-bold transition-colors cursor-pointer ${
-                isLight ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
-              }`}
-            >
-              <Printer className="w-3.5 h-3.5 text-blue-500" />
-            </button>
-
-            <button
               onClick={handleRefresh}
               title="Refresh ledger"
               className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
@@ -664,21 +654,11 @@ export const FinancialRecordsModal: React.FC<Props> = ({
                     {metrics.totalCount}
                   </span>
                 </div>
-                <div className={`border-x px-2 ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
+                <div className={`border-l pl-3 ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Live Wallet Balance</span>
                   <span className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400">
                     ₹{currentUser.balance.toLocaleString()}
                   </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Cert. E-Statement</span>
-                  <button
-                    onClick={() => setIsStatementOpen(true)}
-                    className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center space-x-1 mt-0.5 hover:underline"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>View / Print</span>
-                  </button>
                 </div>
               </>
             )}
@@ -1227,22 +1207,7 @@ export const FinancialRecordsModal: React.FC<Props> = ({
             <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
             <span>256-Bit SSL Encrypted Financial Gateway</span>
           </div>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={() => setIsStatementOpen(true)}
-              className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold flex items-center space-x-1"
-            >
-              <FileText className="w-3 h-3" />
-              <span>Statement View</span>
-            </button>
-            <button
-              onClick={handleExportCsv}
-              className="text-blue-600 dark:text-blue-400 hover:underline font-bold flex items-center space-x-1"
-            >
-              <Download className="w-3 h-3" />
-              <span>Export CSV</span>
-            </button>
-          </div>
+          <span className="text-[10px] text-slate-400 font-mono">Real-time Verified Ledger</span>
         </div>
 
       </div>

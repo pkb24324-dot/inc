@@ -14,7 +14,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   X,
-  TrendingUp
+  TrendingUp,
+  Landmark
 } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
@@ -83,6 +84,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       badgeColor: 'bg-amber-500 text-slate-950',
     },
     {
+      id: 'treasury' as const,
+      label: 'Treasury & Liquidity',
+      shortLabel: 'Treasury',
+      icon: Landmark,
+      color: 'text-emerald-400',
+    },
+    {
       id: 'users' as const,
       label: 'User Directory',
       shortLabel: 'Users',
@@ -91,7 +99,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     },
     {
       id: 'plans' as const,
-      label: 'Plans & Yields',
+      label: 'Plans & Returns',
       shortLabel: 'Plans',
       icon: Package,
       color: 'text-purple-400',

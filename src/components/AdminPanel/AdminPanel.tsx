@@ -5,6 +5,7 @@ import { AdminSidebar } from './AdminSidebar';
 import { AdminDashboard } from './AdminDashboard';
 import { DepositApprovals } from './DepositApprovals';
 import { WithdrawalApprovals } from './WithdrawalApprovals';
+import { TreasuryView } from './TreasuryView';
 import { UserManager } from './UserManager';
 import { PlanManager } from './PlanManager';
 import { GatewaySettings } from './GatewaySettings';
@@ -74,6 +75,7 @@ export const AdminPanel: React.FC = () => {
           {activeAdminTab === 'dashboard' && <AdminDashboard />}
           {activeAdminTab === 'deposits' && <DepositApprovals />}
           {activeAdminTab === 'withdrawals' && <WithdrawalApprovals />}
+          {activeAdminTab === 'treasury' && <TreasuryView />}
           {activeAdminTab === 'users' && <UserManager />}
           {activeAdminTab === 'plans' && <PlanManager />}
           {activeAdminTab === 'security' && <SecurityMonitor />}

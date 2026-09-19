@@ -1,6 +1,6 @@
 {
-  "name": "AM Investment & Admin Hub",
-  "description": "AM official investment platform with real-time portfolio tracking, secure deposit and withdrawal transaction management, and an advanced admin control panel.",
+  "name": "AM invest",
+  "description": "AM invest official smart investment platform with real-time portfolio tracking, secure deposit and withdrawal transaction management, and an advanced admin control panel.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

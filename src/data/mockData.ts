@@ -1,13 +1,13 @@
 import { InvestmentPlan, UserAccount, Transaction, SystemSettings, AuditLog, GiftCode, FraudAlert } from '../types';
 
 export const INITIAL_SETTINGS: SystemSettings = {
-  platformName: 'AM',
-  adminUpiId: 'am.pay@oksbi',
-  merchantName: 'AM Investment Ltd',
+  platformName: 'AM invest',
+  adminUpiId: 'aminvest@oksbi',
+  merchantName: 'AM invest',
   bankName: 'State Bank of India',
   bankAccount: '992837461902',
   bankIfsc: 'SBIN0004921',
-  qrCodeUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=am.pay@oksbi&pn=AM%20Investment&cu=INR',
+  qrCodeUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=aminvest@oksbi&pn=AM%20invest&cu=INR',
   minRecharge: 200,
   maxRecharge: 200000,
   minWithdrawal: 200,
@@ -282,7 +282,7 @@ export const INITIAL_OTHER_USERS: UserAccount[] = [
     isFrozen: false,
     createdAt: '2026-01-01T10:00:00Z',
     bankDetails: {
-      accountHolder: 'Apex Treasury Admin',
+      accountHolder: 'AM invest Treasury',
       accountNumber: '99887766554433',
       ifsc: 'SBIN0000001',
       bankName: 'State Bank of India',
